@@ -287,13 +287,23 @@ fn asset_id_bytes(id: &elements::AssetId) -> [u8; 32] {
     id.into_inner().to_byte_array()
 }
 
-fn prioritise_and_send(daemon: &ElementsD, tx: &elements::Transaction) -> elements::Txid {
+fn send_and_mine(daemon: &ElementsD, tx: &elements::Transaction) -> elements::Txid {
     let txid = tx.txid();
     daemon.call(
         "prioritisetransaction",
         &[json!(txid.to_string()), json!(0), json!(100_000_000i64)],
     );
-    daemon.send_raw_transaction(tx)
+    daemon.send_raw_transaction(tx);
+    daemon.generate(1);
+    let confirmations = daemon
+        .call("getrawtransaction", &[json!(txid.to_string()), json!(true)])
+        .get("confirmations")
+        .and_then(|v| v.as_u64());
+    assert!(
+        confirmations.unwrap_or(0) >= 1,
+        "transaction {txid} should be confirmed in a block"
+    );
+    txid
 }
 
 fn get_raw_transaction(daemon: &ElementsD, txid: &elements::Txid) -> elements::Transaction {
@@ -491,8 +501,7 @@ fn vault_trigger_and_complete() {
     };
 
     println!("Submitting trigger tx...");
-    let trigger_txid = prioritise_and_send(&daemon, &trigger_tx);
-    daemon.generate(1);
+    let trigger_txid = send_and_mine(&daemon, &trigger_tx);
 
     // Find the triggered UTXO
     let trigger_out_tx = get_raw_transaction(&daemon, &trigger_txid);
@@ -558,8 +567,7 @@ fn vault_trigger_and_complete() {
     };
 
     println!("Submitting complete tx...");
-    let _complete_txid = prioritise_and_send(&daemon, &complete_tx);
-    daemon.generate(1);
+    let _complete_txid = send_and_mine(&daemon, &complete_tx);
     println!("vault_trigger_and_complete: PASSED");
 }
 
@@ -617,8 +625,7 @@ fn vault_recovery() {
     };
 
     println!("Submitting recovery tx...");
-    let _recovery_txid = prioritise_and_send(&daemon, &recover_tx);
-    daemon.generate(1);
+    let _recovery_txid = send_and_mine(&daemon, &recover_tx);
     println!("vault_recovery: PASSED");
 }
 
@@ -730,8 +737,7 @@ fn vault_recovery_after_trigger() {
         psbt.extract_tx().expect("extractable")
     };
 
-    let trigger_txid = prioritise_and_send(&daemon, &trigger_tx);
-    daemon.generate(1);
+    let trigger_txid = send_and_mine(&daemon, &trigger_tx);
 
     // Find the triggered UTXO
     let trigger_out_tx = get_raw_transaction(&daemon, &trigger_txid);
@@ -787,8 +793,7 @@ fn vault_recovery_after_trigger() {
     };
 
     println!("Submitting recovery tx from triggered state...");
-    let _recovery_txid = prioritise_and_send(&daemon, &recover_tx);
-    daemon.generate(1);
+    let _recovery_txid = send_and_mine(&daemon, &recover_tx);
     println!("vault_recovery_after_trigger: PASSED");
 }
 
@@ -938,8 +943,7 @@ fn vault_batch_trigger() {
     };
 
     println!("Submitting batch trigger tx (3 inputs)...");
-    let trigger_txid = prioritise_and_send(&daemon, &trigger_tx);
-    daemon.generate(1);
+    let trigger_txid = send_and_mine(&daemon, &trigger_tx);
 
     // Mine SPEND_DELAY blocks for CSV
     daemon.generate(SPEND_DELAY as u32);
@@ -1007,8 +1011,232 @@ fn vault_batch_trigger() {
         };
 
         println!("Completing vault {i}...");
-        let _txid = prioritise_and_send(&daemon, &complete_tx);
-        daemon.generate(1);
+        let _txid = send_and_mine(&daemon, &complete_tx);
     }
     println!("vault_batch_trigger: PASSED");
+}
+
+#[test]
+fn vault_batch_complete() {
+    let (daemon, genesis_hash) = setup();
+    let recovery_addr = daemon.get_new_address();
+    let destinations: Vec<_> = (0..3).map(|_| daemon.get_new_address()).collect();
+
+    let scripts = compile_vault_scripts(spk_hash(&recovery_addr.script_pubkey()));
+    let vault_info = build_vault_taptree(&scripts);
+    let vault_addr = vault_address(&vault_info);
+
+    // Fund 3 vault UTXOs
+    let funds: Vec<_> = (0..3)
+        .map(|_| fund_address(&daemon, &vault_addr))
+        .collect();
+    let asset = funds[0].2.asset;
+
+    // Build the batched 3-in/3-out complete tx template.
+    // current_index differs per input, so each vault gets a different CTV hash.
+    let complete_template = elements::Transaction {
+        version: 2,
+        lock_time: elements::LockTime::ZERO,
+        input: (0..3)
+            .map(|_| elements::TxIn {
+                previous_output: elements::OutPoint::default(),
+                is_pegin: false,
+                script_sig: elements::Script::new(),
+                sequence: elements::Sequence::from_consensus(SPEND_DELAY as u32),
+                asset_issuance: elements::AssetIssuance::null(),
+                witness: elements::TxInWitness::empty(),
+            })
+            .collect(),
+        output: destinations
+            .iter()
+            .map(|dest| elements::TxOut {
+                value: confidential::Value::Explicit(100_000_000),
+                script_pubkey: dest.script_pubkey(),
+                asset,
+                nonce: confidential::Nonce::Null,
+                witness: elements::TxOutWitness::empty(),
+            })
+            .collect(),
+    };
+
+    // Each input sees a different current_index → different CTV hash
+    let target_hashes: Vec<[u8; 32]> = (0..3)
+        .map(|i| compute_ctv_hash(&complete_template, i))
+        .collect();
+
+    let triggered_infos: Vec<_> = target_hashes
+        .iter()
+        .map(|th| build_triggered_taptree(&scripts, th))
+        .collect();
+    let triggered_addrs: Vec<_> = triggered_infos.iter().map(|i| vault_address(i)).collect();
+
+    // Batch trigger (same as vault_batch_trigger)
+    let trigger_tx = {
+        let inputs: Vec<_> = funds
+            .iter()
+            .map(|(txid, vout, _)| elements::TxIn {
+                previous_output: elements::OutPoint::new(*txid, *vout),
+                is_pegin: false,
+                script_sig: elements::Script::new(),
+                sequence: elements::Sequence::ZERO,
+                asset_issuance: elements::AssetIssuance::null(),
+                witness: elements::TxInWitness::empty(),
+            })
+            .collect();
+        let outputs: Vec<_> = triggered_addrs
+            .iter()
+            .map(|addr| elements::TxOut {
+                value: confidential::Value::Explicit(100_000_000),
+                script_pubkey: addr.script_pubkey(),
+                asset,
+                nonce: confidential::Nonce::Null,
+                witness: elements::TxOutWitness::empty(),
+            })
+            .collect();
+
+        let mut psbt = Psbt::from_tx(elements::Transaction {
+            version: 2,
+            lock_time: elements::LockTime::ZERO,
+            input: inputs,
+            output: outputs,
+        });
+        let tx = psbt.extract_tx().expect("extractable");
+
+        for i in 0..3u32 {
+            let sighash_all = {
+                let utxos: Vec<_> = funds
+                    .iter()
+                    .map(|(_, _, utxo)| ElementsUtxo::from(utxo.clone()))
+                    .collect();
+                let (script, version) = script_ver(&scripts.trigger);
+                let control_block = vault_info
+                    .control_block(&(script, version))
+                    .expect("control block");
+                let env = ElementsEnv::new(
+                    std::sync::Arc::new(tx.clone()),
+                    utxos,
+                    i,
+                    scripts.trigger.commit().cmr(),
+                    control_block,
+                    None,
+                    genesis_hash,
+                );
+                env.c_tx_env().sighash_all()
+            };
+
+            let mut wv = HashMap::new();
+            wv.insert(
+                WitnessName::from_str_unchecked("TRIGGER_SIG"),
+                Value::byte_array(util::sign_schnorr(1, sighash_all.to_byte_array())),
+            );
+            wv.insert(
+                WitnessName::from_str_unchecked("TARGET_HASH"),
+                Value::u256(simplicityhl::num::U256::from_byte_array(
+                    target_hashes[i as usize],
+                )),
+            );
+            wv.insert(
+                WitnessName::from_str_unchecked("TRIGGER_VOUT_IDX"),
+                Value::u32(i),
+            );
+
+            let utxos: Vec<_> = funds
+                .iter()
+                .map(|(_, _, utxo)| ElementsUtxo::from(utxo.clone()))
+                .collect();
+            let wit = build_simplicity_spend(
+                &scripts.trigger,
+                simplicityhl::WitnessValues::from(wv),
+                &vault_info,
+                &tx,
+                utxos,
+                i,
+                genesis_hash,
+            );
+            psbt.inputs_mut()[i as usize].final_script_witness = Some(wit);
+        }
+        psbt.extract_tx().expect("extractable")
+    };
+
+    println!("Submitting batch trigger tx (3 inputs)...");
+    let trigger_txid = send_and_mine(&daemon, &trigger_tx);
+    daemon.generate(SPEND_DELAY as u32);
+
+    // Build single 3-in/3-out complete tx
+    let trigger_out_tx = get_raw_transaction(&daemon, &trigger_txid);
+    let triggered_utxos: Vec<(u32, elements::TxOut)> = triggered_addrs
+        .iter()
+        .map(|addr| {
+            let spk = addr.script_pubkey();
+            trigger_out_tx
+                .output
+                .iter()
+                .enumerate()
+                .find(|(_, o)| o.script_pubkey == spk)
+                .map(|(v, o)| (v as u32, o.clone()))
+                .expect("triggered output")
+        })
+        .collect();
+
+    let complete_tx = {
+        let inputs: Vec<_> = triggered_utxos
+            .iter()
+            .map(|(vout, _)| elements::TxIn {
+                previous_output: elements::OutPoint::new(trigger_txid, *vout),
+                is_pegin: false,
+                script_sig: elements::Script::new(),
+                sequence: elements::Sequence::from_consensus(SPEND_DELAY as u32),
+                asset_issuance: elements::AssetIssuance::null(),
+                witness: elements::TxInWitness::empty(),
+            })
+            .collect();
+        let outputs: Vec<_> = destinations
+            .iter()
+            .map(|dest| elements::TxOut {
+                value: confidential::Value::Explicit(100_000_000),
+                script_pubkey: dest.script_pubkey(),
+                asset,
+                nonce: confidential::Nonce::Null,
+                witness: elements::TxOutWitness::empty(),
+            })
+            .collect();
+
+        let mut psbt = Psbt::from_tx(elements::Transaction {
+            version: 2,
+            lock_time: elements::LockTime::ZERO,
+            input: inputs,
+            output: outputs,
+        });
+        let tx = psbt.extract_tx().expect("extractable");
+
+        for i in 0..3u32 {
+            let mut wv = HashMap::new();
+            wv.insert(
+                WitnessName::from_str_unchecked("TARGET_HASH"),
+                Value::u256(simplicityhl::num::U256::from_byte_array(
+                    target_hashes[i as usize],
+                )),
+            );
+
+            let utxos: Vec<_> = triggered_utxos
+                .iter()
+                .map(|(_, utxo)| ElementsUtxo::from(utxo.clone()))
+                .collect();
+            let wit = build_simplicity_spend(
+                &scripts.complete,
+                simplicityhl::WitnessValues::from(wv),
+                &triggered_infos[i as usize],
+                &tx,
+                utxos,
+                i,
+                genesis_hash,
+            );
+            psbt.inputs_mut()[i as usize].final_script_witness = Some(wit);
+        }
+        psbt.extract_tx().expect("extractable")
+    };
+
+    println!("Submitting batch complete tx (3 inputs)...");
+    let _txid = send_and_mine(&daemon, &complete_tx);
+    println!("vault_batch_complete: PASSED");
 }
