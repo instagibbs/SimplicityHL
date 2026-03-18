@@ -1,0 +1,39 @@
+/*
+ * VAULT COMPLETION
+ *
+ * Spend from the triggered state to the final destination after a CSV delay.
+ * Part of the OP_VAULT emulation: this script is a tapleaf in the triggered
+ * taptree, alongside a state leaf carrying the target hash and the recovery leaf.
+ *
+ * The target hash is authenticated via the taptree: tappath(0) returns the
+ * sibling leaf (the state leaf), which must match build_tapleaf_simplicity
+ * applied to the witness TARGET_HASH. Since the control block is consensus-
+ * validated, this proves TARGET_HASH was committed in the scriptPubKey.
+ *
+ * The CTV hash binds the transaction to that commitment.
+ */
+fn main() {
+    let target_hash: u256 = witness::TARGET_HASH;
+
+    // Authenticate target_hash from the taptree structure
+    let state_leaf: u256 = jet::build_tapleaf_simplicity(target_hash);
+    let tappath_sibling: u256 = unwrap(jet::tappath(0));
+    assert!(jet::eq_256(state_leaf, tappath_sibling));
+
+    // Enforce relative timelock
+    jet::check_lock_distance(param::SPEND_DELAY);
+
+    // Compute CTV hash (same field order as ctv.simf)
+    let ctx: Ctx8 = jet::sha_256_ctx_8_init();
+    let ctx: Ctx8 = jet::sha_256_ctx_8_add_4(ctx, jet::version());
+    let ctx: Ctx8 = jet::sha_256_ctx_8_add_4(ctx, jet::lock_time());
+    let ctx: Ctx8 = jet::sha_256_ctx_8_add_32(ctx, jet::input_script_sigs_hash());
+    let ctx: Ctx8 = jet::sha_256_ctx_8_add_4(ctx, jet::num_inputs());
+    let ctx: Ctx8 = jet::sha_256_ctx_8_add_32(ctx, jet::input_sequences_hash());
+    let ctx: Ctx8 = jet::sha_256_ctx_8_add_4(ctx, jet::num_outputs());
+    let ctx: Ctx8 = jet::sha_256_ctx_8_add_32(ctx, jet::outputs_hash());
+    let ctx: Ctx8 = jet::sha_256_ctx_8_add_4(ctx, jet::current_index());
+    let ctv_hash: u256 = jet::sha_256_ctx_8_finalize(ctx);
+
+    assert!(jet::eq_256(ctv_hash, target_hash));
+}

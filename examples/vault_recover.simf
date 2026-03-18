@@ -1,0 +1,38 @@
+/*
+ * VAULT RECOVERY
+ *
+ * Sweep funds to a pre-committed recovery address. No signature required.
+ * Part of the OP_VAULT emulation: this script exists as a tapleaf in both
+ * the vault and triggered taptree states, allowing recovery at any time.
+ *
+ * Zero-fee transaction: output value must exactly match input value.
+ * Fee handling uses prioritisetransaction (regtest) or CPFP anchor (prod).
+ */
+fn main() {
+    assert!(jet::eq_32(jet::num_outputs(), 1));
+    let output_spk_hash: u256 = unwrap(jet::output_script_hash(0));
+    assert!(jet::eq_256(output_spk_hash, param::RECOVERY_SPK_HASH));
+
+    let (in_asset, in_amount): (Asset1, Amount1) = jet::current_amount();
+    let (out_asset, out_amount): (Asset1, Amount1) = unwrap(jet::output_amount(0));
+
+    let in_expl_asset: u256 = match in_asset {
+        Left(c: (u1, u256)) => panic!(),
+        Right(a: u256) => a,
+    };
+    let out_expl_asset: u256 = match out_asset {
+        Left(c: (u1, u256)) => panic!(),
+        Right(a: u256) => a,
+    };
+    assert!(jet::eq_256(in_expl_asset, out_expl_asset));
+
+    let in_expl_amount: u64 = match in_amount {
+        Left(c: (u1, u256)) => panic!(),
+        Right(a: u64) => a,
+    };
+    let out_expl_amount: u64 = match out_amount {
+        Left(c: (u1, u256)) => panic!(),
+        Right(a: u64) => a,
+    };
+    assert!(jet::eq_64(in_expl_amount, out_expl_amount));
+}

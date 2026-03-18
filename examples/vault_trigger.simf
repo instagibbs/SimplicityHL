@@ -1,0 +1,76 @@
+/*
+ * VAULT TRIGGER
+ *
+ * Spend from the vault state to the triggered state, committing to a
+ * withdrawal target. Part of the OP_VAULT emulation.
+ *
+ * The trigger transaction moves funds into a new taptree that contains:
+ * - The completion script (parameterized by COMPLETE_CMR)
+ * - A state leaf encoding the TARGET_HASH (a fake tapleaf, never executed)
+ * - The same recovery script from the vault taptree
+ *
+ * The trigger script reads the recovery leaf hash from tappath(0) (its
+ * sibling in the 2-leaf vault tree), then constructs the triggered taptree
+ * root and verifies the output scriptPubKey matches.
+ *
+ * Batching: N vault UTXOs can trigger in one transaction. Each input's
+ * TRIGGER_VOUT_IDX points to its corresponding output. All signatures
+ * use sig_all_hash(), cross-validating the entire transaction.
+ */
+fn main() {
+    let target_hash: u256 = witness::TARGET_HASH;
+    let trigger_vout: u32 = witness::TRIGGER_VOUT_IDX;
+
+    // 1. Verify trigger authorization
+    jet::bip_0340_verify(
+        (param::TRIGGER_PUBKEY, jet::sig_all_hash()),
+        witness::TRIGGER_SIG,
+    );
+
+    // 2. Read recovery leaf from vault taptree (sibling in 2-leaf tree)
+    let recovery_leaf: u256 = unwrap(jet::tappath(0));
+
+    // 3. Construct triggered taptree root
+    let complete_leaf: u256 = jet::build_tapleaf_simplicity(param::COMPLETE_CMR);
+    let state_leaf: u256 = jet::build_tapleaf_simplicity(target_hash);
+    let branch: u256 = jet::build_tapbranch(complete_leaf, state_leaf);
+    let triggered_root: u256 = jet::build_tapbranch(branch, recovery_leaf);
+
+    // 4. Compute expected output scriptPubKey hash
+    //    scriptPubKey = OP_1 OP_PUSHBYTES_32 <tweaked_key> = 0x5120 || key
+    let tweaked_key: u256 = jet::build_taptweak(jet::internal_key(), triggered_root);
+    let ctx: Ctx8 = jet::sha_256_ctx_8_init();
+    let ctx: Ctx8 = jet::sha_256_ctx_8_add_2(ctx, 0x5120);
+    let ctx: Ctx8 = jet::sha_256_ctx_8_add_32(ctx, tweaked_key);
+    let expected_spk_hash: u256 = jet::sha_256_ctx_8_finalize(ctx);
+
+    // 5. Verify output matches
+    let output_spk_hash: u256 = unwrap(jet::output_script_hash(trigger_vout));
+    assert!(jet::eq_256(expected_spk_hash, output_spk_hash));
+
+    // 6. Value preservation (zero-fee: exact match required)
+    let (in_asset, in_amount): (Asset1, Amount1) = jet::current_amount();
+    let (out_asset, out_amount): (Asset1, Amount1) = unwrap(
+        jet::output_amount(trigger_vout)
+    );
+
+    let in_expl_asset: u256 = match in_asset {
+        Left(c: (u1, u256)) => panic!(),
+        Right(a: u256) => a,
+    };
+    let out_expl_asset: u256 = match out_asset {
+        Left(c: (u1, u256)) => panic!(),
+        Right(a: u256) => a,
+    };
+    assert!(jet::eq_256(in_expl_asset, out_expl_asset));
+
+    let in_expl_amount: u64 = match in_amount {
+        Left(c: (u1, u256)) => panic!(),
+        Right(a: u64) => a,
+    };
+    let out_expl_amount: u64 = match out_amount {
+        Left(c: (u1, u256)) => panic!(),
+        Right(a: u64) => a,
+    };
+    assert!(jet::eq_64(in_expl_amount, out_expl_amount));
+}

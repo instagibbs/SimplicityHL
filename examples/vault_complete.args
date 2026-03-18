@@ -1,0 +1,6 @@
+{
+    "SPEND_DELAY": {
+        "value": "10",
+        "type": "Distance"
+    }
+}
