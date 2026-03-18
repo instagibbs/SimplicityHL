@@ -9,6 +9,7 @@
  * Fee handling uses prioritisetransaction (regtest) or CPFP anchor (prod).
  */
 fn main() {
+    assert!(jet::eq_32(jet::num_inputs(), 1));
     assert!(jet::eq_32(jet::num_outputs(), 1));
     let output_spk_hash: u256 = unwrap(jet::output_script_hash(0));
     assert!(jet::eq_256(output_spk_hash, param::RECOVERY_SPK_HASH));
