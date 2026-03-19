@@ -599,16 +599,79 @@ fn main() {
         0x7871aa3e9be63d43, 0x03b7028f2cc920f1
     ));
 
-    // Test 4: a * inv(a) = 1 (full-size a)
+    // Test 4: Full-size inv(a) against precomputed reference
     let a0: u64 = 0x760900000002fffd;
     let a1: u64 = 0xebf4000bc40c0002;
     let a2: u64 = 0x5f48985753c758ba;
-    let a3: u64 = 0xd77ce58537052574; // Note: not the same as R mod p limb3
+    let a3: u64 = 0xd77ce58537052574;
     let a4: u64 = 0x35c071a97a256ec6;
     let a5: u64 = 0x015f65ec3fa80e49;
     let (i0, i1, i2, i3, i4, i5): (u64, u64, u64, u64, u64, u64) =
         fp_inv(a0, a1, a2, a3, a4, a5);
+    assert!(fp_eq(
+        i0, i1, i2, i3, i4, i5,
+        0xa2e120640eb3ba84, 0x67e7b19954416490,
+        0xb82524681aa25469, 0x4be84e054b5ccba4,
+        0x2bb639cbafdf3223, 0x0be0af278e8c21d8
+    ));
+
+    // Test 5: a * inv(a) = 1 (round-trip)
     let (r0, r1, r2, r3, r4, r5): (u64, u64, u64, u64, u64, u64) =
         fp_mul(a0, a1, a2, a3, a4, a5, i0, i1, i2, i3, i4, i5);
     assert!(fp_eq(r0, r1, r2, r3, r4, r5, 1, 0, 0, 0, 0, 0));
+
+    // Test 6: inv(p-1) = p-1 (self-inverse since (p-1)^2 = 1)
+    let pm1_0: u64 = 0xb9feffffffffaaaa;
+    let pm1_1: u64 = 0x1eabfffeb153ffff;
+    let pm1_2: u64 = 0x6730d2a0f6b0f624;
+    let pm1_3: u64 = 0x64774b84f38512bf;
+    let pm1_4: u64 = 0x4b1ba7b6434bacd7;
+    let pm1_5: u64 = 0x1a0111ea397fe69a;
+    let (r0, r1, r2, r3, r4, r5): (u64, u64, u64, u64, u64, u64) =
+        fp_inv(pm1_0, pm1_1, pm1_2, pm1_3, pm1_4, pm1_5);
+    assert!(fp_eq(
+        r0, r1, r2, r3, r4, r5,
+        pm1_0, pm1_1, pm1_2, pm1_3, pm1_4, pm1_5
+    ));
+
+    // Test 7: inv(inv(a)) = a (double inversion)
+    let (ii0, ii1, ii2, ii3, ii4, ii5): (u64, u64, u64, u64, u64, u64) =
+        fp_inv(i0, i1, i2, i3, i4, i5);
+    assert!(fp_eq(
+        ii0, ii1, ii2, ii3, ii4, ii5,
+        a0, a1, a2, a3, a4, a5
+    ));
+
+    // Test 8: inv(a*b) = inv(a) * inv(b)
+    let b0: u64 = 0xf4df1f341c341746;
+    let b1: u64 = 0x0a76e6a609d104f1;
+    let b2: u64 = 0x8de5476c4c95b6d5;
+    let b3: u64 = 0x67eb88a9939d83c0;
+    let b4: u64 = 0x9a793e85b519952d;
+    let b5: u64 = 0x11988fe592cae3aa;
+    // inv(a*b)
+    let (ab0, ab1, ab2, ab3, ab4, ab5): (u64, u64, u64, u64, u64, u64) =
+        fp_mul(a0, a1, a2, a3, a4, a5, b0, b1, b2, b3, b4, b5);
+    let (inv_ab0, inv_ab1, inv_ab2, inv_ab3, inv_ab4, inv_ab5):
+        (u64, u64, u64, u64, u64, u64) =
+        fp_inv(ab0, ab1, ab2, ab3, ab4, ab5);
+    // inv(a) * inv(b)
+    let (inv_b0, inv_b1, inv_b2, inv_b3, inv_b4, inv_b5):
+        (u64, u64, u64, u64, u64, u64) =
+        fp_inv(b0, b1, b2, b3, b4, b5);
+    let (prod0, prod1, prod2, prod3, prod4, prod5):
+        (u64, u64, u64, u64, u64, u64) =
+        fp_mul(i0, i1, i2, i3, i4, i5,
+               inv_b0, inv_b1, inv_b2, inv_b3, inv_b4, inv_b5);
+    assert!(fp_eq(
+        inv_ab0, inv_ab1, inv_ab2, inv_ab3, inv_ab4, inv_ab5,
+        prod0, prod1, prod2, prod3, prod4, prod5
+    ));
+    // Also verify against precomputed value
+    assert!(fp_eq(
+        inv_ab0, inv_ab1, inv_ab2, inv_ab3, inv_ab4, inv_ab5,
+        0x67293c972020da1d, 0x66781a8ca1d61b7d,
+        0x28bb960b429fdc66, 0xbe3424615318597c,
+        0xbc3b3378b5df70e9, 0x1853dfc0d73c67af
+    ));
 }
