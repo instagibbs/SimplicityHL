@@ -478,4 +478,74 @@ fn main() {
     assert!(fp_eq(x1sq_12, x1sq_13, x1sq_14, x1sq_15, x1sq_16, x1sq_17, z, z, z, z, z, z));
     let nz: bool = match fp_eq(x1sq_24, x1sq_25, x1sq_26, x1sq_27, x1sq_28, x1sq_29, z, z, z, z, z, z) { true => false, false => true, };
     assert!(nz);
+
+    // ===== Compute m_num = 3 * x1^2 (scale each Fp component by 3) =====
+    // 3 in Montgomery = fp_to_mont(3)
+    let (three0, three1, three2, three3, three4, three5): (u64, u64, u64, u64, u64, u64) = fp_to_mont(3, 0, 0, 0, 0, 0);
+    // m_num = x1^2 * (3,0,...,0) in Fp12 -- just scale c2 by 3
+    // Since x1^2 is sparse (only c2), scaling by scalar 3 means fm(c2_re, 3_mont) and fm(c2_im, 3_mont)
+    let (mn_c2r0, mn_c2r1, mn_c2r2, mn_c2r3, mn_c2r4, mn_c2r5): (u64, u64, u64, u64, u64, u64) = fm(x1sq_24, x1sq_25, x1sq_26, x1sq_27, x1sq_28, x1sq_29, three0, three1, three2, three3, three4, three5);
+    let (mn_c2i0, mn_c2i1, mn_c2i2, mn_c2i3, mn_c2i4, mn_c2i5): (u64, u64, u64, u64, u64, u64) = fm(x1sq_30, x1sq_31, x1sq_32, x1sq_33, x1sq_34, x1sq_35, three0, three1, three2, three3, three4, three5);
+    // m_num in Fp12: all zero except c2 = (mn_c2r, mn_c2i)
+
+    // ===== Compute m_den = 2 * y1 * z1 =====
+    // y1*z1: y1 at c0, z1 at c3. Product is at c3 (shown above)
+    // y1*z1 = ((0,0,0), (tw_y, 0, 0)) in our Fp12 layout
+    // 2*y1*z1: c3 = 2*tw_y
+    let (md_c3r0, md_c3r1, md_c3r2, md_c3r3, md_c3r4, md_c3r5): (u64, u64, u64, u64, u64, u64) = fa(tw_yr0, tw_yr1, tw_yr2, tw_yr3, tw_yr4, tw_yr5, tw_yr0, tw_yr1, tw_yr2, tw_yr3, tw_yr4, tw_yr5);
+    let (md_c3i0, md_c3i1, md_c3i2, md_c3i3, md_c3i4, md_c3i5): (u64, u64, u64, u64, u64, u64) = fa(tw_yi0, tw_yi1, tw_yi2, tw_yi3, tw_yi4, tw_yi5, tw_yi0, tw_yi1, tw_yi2, tw_yi3, tw_yi4, tw_yi5);
+    // m_den in Fp12: all zero except c3 = (md_c3r, md_c3i)
+
+    // ===== Compute diff1 = xt*z1 - x1*zt =====
+    // xt*z1 = xP at c3 (since xt is scalar at c0, z1 at c3)
+    // x1*zt = tw_x at c1 (since x1 at c1, zt scalar at c0)
+    // diff1 has: c1 = -tw_x, c3 = (xP, 0)
+    // But wait - xP in Fp needs to be in Montgomery form as an Fp2 element (xP, 0)
+    // We already have px0..px5 as Fp Montgomery
+
+    // -tw_x (negation in Montgomery = p - x for each Fp component)
+    let (neg_xr0, neg_xr1, neg_xr2, neg_xr3, neg_xr4, neg_xr5): (u64, u64, u64, u64, u64, u64) = fs(z,z,z,z,z,z, tw_xr0,tw_xr1,tw_xr2,tw_xr3,tw_xr4,tw_xr5);
+    let (neg_xi0, neg_xi1, neg_xi2, neg_xi3, neg_xi4, neg_xi5): (u64, u64, u64, u64, u64, u64) = fs(z,z,z,z,z,z, tw_xi0,tw_xi1,tw_xi2,tw_xi3,tw_xi4,tw_xi5);
+    // -tw_y
+    let (neg_yr0, neg_yr1, neg_yr2, neg_yr3, neg_yr4, neg_yr5): (u64, u64, u64, u64, u64, u64) = fs(z,z,z,z,z,z, tw_yr0,tw_yr1,tw_yr2,tw_yr3,tw_yr4,tw_yr5);
+    let (neg_yi0, neg_yi1, neg_yi2, neg_yi3, neg_yi4, neg_yi5): (u64, u64, u64, u64, u64, u64) = fs(z,z,z,z,z,z, tw_yi0,tw_yi1,tw_yi2,tw_yi3,tw_yi4,tw_yi5);
+
+    // ===== term1 = m_num * diff1 =====
+    // m_num: c2 = 3*tw_x² (rest zero)
+    // diff1: c1 = -tw_x, c3 = (xP, 0) (rest zero)
+    let (t1_0, t1_1, t1_2, t1_3, t1_4, t1_5, t1_6, t1_7, t1_8, t1_9, t1_10, t1_11, t1_12, t1_13, t1_14, t1_15, t1_16, t1_17, t1_18, t1_19, t1_20, t1_21, t1_22, t1_23, t1_24, t1_25, t1_26, t1_27, t1_28, t1_29, t1_30, t1_31, t1_32, t1_33, t1_34, t1_35, t1_36, t1_37, t1_38, t1_39, t1_40, t1_41, t1_42, t1_43, t1_44, t1_45, t1_46, t1_47, t1_48, t1_49, t1_50, t1_51, t1_52, t1_53, t1_54, t1_55, t1_56, t1_57, t1_58, t1_59, t1_60, t1_61, t1_62, t1_63, t1_64, t1_65, t1_66, t1_67, t1_68, t1_69, t1_70, t1_71):
+        (u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64) =
+        fp12_mul(
+            z,z,z,z,z,z, z,z,z,z,z,z, z,z,z,z,z,z,z,z,z,z,z,z, mn_c2r0,mn_c2r1,mn_c2r2,mn_c2r3,mn_c2r4,mn_c2r5,mn_c2i0,mn_c2i1,mn_c2i2,mn_c2i3,mn_c2i4,mn_c2i5, z,z,z,z,z,z,z,z,z,z,z,z, z,z,z,z,z,z,z,z,z,z,z,z, z,z,z,z,z,z,z,z,z,z,z,z,
+            z,z,z,z,z,z, z,z,z,z,z,z, neg_xr0,neg_xr1,neg_xr2,neg_xr3,neg_xr4,neg_xr5,neg_xi0,neg_xi1,neg_xi2,neg_xi3,neg_xi4,neg_xi5, z,z,z,z,z,z,z,z,z,z,z,z, px0,px1,px2,px3,px4,px5,z,z,z,z,z,z, z,z,z,z,z,z,z,z,z,z,z,z, z,z,z,z,z,z,z,z,z,z,z,z
+        );
+
+    // ===== term2 = m_den * diff2 =====
+    // m_den: c3 = 2*tw_y (rest zero)
+    // diff2: c0 = -tw_y, c3 = (yP, 0) (rest zero)
+    let (t2_0, t2_1, t2_2, t2_3, t2_4, t2_5, t2_6, t2_7, t2_8, t2_9, t2_10, t2_11, t2_12, t2_13, t2_14, t2_15, t2_16, t2_17, t2_18, t2_19, t2_20, t2_21, t2_22, t2_23, t2_24, t2_25, t2_26, t2_27, t2_28, t2_29, t2_30, t2_31, t2_32, t2_33, t2_34, t2_35, t2_36, t2_37, t2_38, t2_39, t2_40, t2_41, t2_42, t2_43, t2_44, t2_45, t2_46, t2_47, t2_48, t2_49, t2_50, t2_51, t2_52, t2_53, t2_54, t2_55, t2_56, t2_57, t2_58, t2_59, t2_60, t2_61, t2_62, t2_63, t2_64, t2_65, t2_66, t2_67, t2_68, t2_69, t2_70, t2_71):
+        (u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64) =
+        fp12_mul(
+            z,z,z,z,z,z, z,z,z,z,z,z, z,z,z,z,z,z,z,z,z,z,z,z, z,z,z,z,z,z,z,z,z,z,z,z, md_c3r0,md_c3r1,md_c3r2,md_c3r3,md_c3r4,md_c3r5,md_c3i0,md_c3i1,md_c3i2,md_c3i3,md_c3i4,md_c3i5, z,z,z,z,z,z,z,z,z,z,z,z, z,z,z,z,z,z,z,z,z,z,z,z,
+            neg_yr0,neg_yr1,neg_yr2,neg_yr3,neg_yr4,neg_yr5,neg_yi0,neg_yi1,neg_yi2,neg_yi3,neg_yi4,neg_yi5, z,z,z,z,z,z,z,z,z,z,z,z, z,z,z,z,z,z,z,z,z,z,z,z, py0,py1,py2,py3,py4,py5,z,z,z,z,z,z, z,z,z,z,z,z,z,z,z,z,z,z, z,z,z,z,z,z,z,z,z,z,z,z
+        );
+
+    // ===== result_n = term1 - term2 =====
+    let (rn_0, rn_1, rn_2, rn_3, rn_4, rn_5, rn_6, rn_7, rn_8, rn_9, rn_10, rn_11, rn_12, rn_13, rn_14, rn_15, rn_16, rn_17, rn_18, rn_19, rn_20, rn_21, rn_22, rn_23, rn_24, rn_25, rn_26, rn_27, rn_28, rn_29, rn_30, rn_31, rn_32, rn_33, rn_34, rn_35, rn_36, rn_37, rn_38, rn_39, rn_40, rn_41, rn_42, rn_43, rn_44, rn_45, rn_46, rn_47, rn_48, rn_49, rn_50, rn_51, rn_52, rn_53, rn_54, rn_55, rn_56, rn_57, rn_58, rn_59, rn_60, rn_61, rn_62, rn_63, rn_64, rn_65, rn_66, rn_67, rn_68, rn_69, rn_70, rn_71):
+        (u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64) =
+        fp12_sub(
+            t1_0, t1_1, t1_2, t1_3, t1_4, t1_5, t1_6, t1_7, t1_8, t1_9, t1_10, t1_11, t1_12, t1_13, t1_14, t1_15, t1_16, t1_17, t1_18, t1_19, t1_20, t1_21, t1_22, t1_23, t1_24, t1_25, t1_26, t1_27, t1_28, t1_29, t1_30, t1_31, t1_32, t1_33, t1_34, t1_35, t1_36, t1_37, t1_38, t1_39, t1_40, t1_41, t1_42, t1_43, t1_44, t1_45, t1_46, t1_47, t1_48, t1_49, t1_50, t1_51, t1_52, t1_53, t1_54, t1_55, t1_56, t1_57, t1_58, t1_59, t1_60, t1_61, t1_62, t1_63, t1_64, t1_65, t1_66, t1_67, t1_68, t1_69, t1_70, t1_71,
+            t2_0, t2_1, t2_2, t2_3, t2_4, t2_5, t2_6, t2_7, t2_8, t2_9, t2_10, t2_11, t2_12, t2_13, t2_14, t2_15, t2_16, t2_17, t2_18, t2_19, t2_20, t2_21, t2_22, t2_23, t2_24, t2_25, t2_26, t2_27, t2_28, t2_29, t2_30, t2_31, t2_32, t2_33, t2_34, t2_35, t2_36, t2_37, t2_38, t2_39, t2_40, t2_41, t2_42, t2_43, t2_44, t2_45, t2_46, t2_47, t2_48, t2_49, t2_50, t2_51, t2_52, t2_53, t2_54, t2_55, t2_56, t2_57, t2_58, t2_59, t2_60, t2_61, t2_62, t2_63, t2_64, t2_65, t2_66, t2_67, t2_68, t2_69, t2_70, t2_71
+        );
+
+    // Verify numerator c0 (indices 0..5 in our layout = c0_re in Montgomery)
+    assert!(fp_eq(rn_0, rn_1, rn_2, rn_3, rn_4, rn_5,
+        0x7d2c38f459505054, 0x279e4ea81ea03497,
+        0x63af772bc266ee9a, 0x99a31cab94e5e649,
+        0xdd1e798dc7c11047, 0x04e9c4f0dbe282de));
+    // Verify numerator c0_im (indices 6..11)
+    assert!(fp_eq(rn_6, rn_7, rn_8, rn_9, rn_10, rn_11,
+        0xaeda328755209fbc, 0x9ac7b60b652b83df,
+        0x8f517c07dc4d2e0a, 0x43238666843e32fb,
+        0xe8c868559f1f80f3, 0x0efcdf27f0bcd79d));
 }
