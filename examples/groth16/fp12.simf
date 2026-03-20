@@ -548,4 +548,23 @@ fn main() {
         0xaeda328755209fbc, 0x9ac7b60b652b83df,
         0x8f517c07dc4d2e0a, 0x43238666843e32fb,
         0xe8c868559f1f80f3, 0x0efcdf27f0bcd79d));
+
+    // ===== Fp12 squaring test: f_num^2 = rn * rn =====
+    // This tests the full Fp12 mul with a non-trivial, non-sparse input
+    let (sq_0, sq_1, sq_2, sq_3, sq_4, sq_5, sq_6, sq_7, sq_8, sq_9, sq_10, sq_11, sq_12, sq_13, sq_14, sq_15, sq_16, sq_17, sq_18, sq_19, sq_20, sq_21, sq_22, sq_23, sq_24, sq_25, sq_26, sq_27, sq_28, sq_29, sq_30, sq_31, sq_32, sq_33, sq_34, sq_35, sq_36, sq_37, sq_38, sq_39, sq_40, sq_41, sq_42, sq_43, sq_44, sq_45, sq_46, sq_47, sq_48, sq_49, sq_50, sq_51, sq_52, sq_53, sq_54, sq_55, sq_56, sq_57, sq_58, sq_59, sq_60, sq_61, sq_62, sq_63, sq_64, sq_65, sq_66, sq_67, sq_68, sq_69, sq_70, sq_71):
+        (u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64) =
+        fp12_mul(
+            rn_0, rn_1, rn_2, rn_3, rn_4, rn_5, rn_6, rn_7, rn_8, rn_9, rn_10, rn_11, rn_12, rn_13, rn_14, rn_15, rn_16, rn_17, rn_18, rn_19, rn_20, rn_21, rn_22, rn_23, rn_24, rn_25, rn_26, rn_27, rn_28, rn_29, rn_30, rn_31, rn_32, rn_33, rn_34, rn_35, rn_36, rn_37, rn_38, rn_39, rn_40, rn_41, rn_42, rn_43, rn_44, rn_45, rn_46, rn_47, rn_48, rn_49, rn_50, rn_51, rn_52, rn_53, rn_54, rn_55, rn_56, rn_57, rn_58, rn_59, rn_60, rn_61, rn_62, rn_63, rn_64, rn_65, rn_66, rn_67, rn_68, rn_69, rn_70, rn_71,
+            rn_0, rn_1, rn_2, rn_3, rn_4, rn_5, rn_6, rn_7, rn_8, rn_9, rn_10, rn_11, rn_12, rn_13, rn_14, rn_15, rn_16, rn_17, rn_18, rn_19, rn_20, rn_21, rn_22, rn_23, rn_24, rn_25, rn_26, rn_27, rn_28, rn_29, rn_30, rn_31, rn_32, rn_33, rn_34, rn_35, rn_36, rn_37, rn_38, rn_39, rn_40, rn_41, rn_42, rn_43, rn_44, rn_45, rn_46, rn_47, rn_48, rn_49, rn_50, rn_51, rn_52, rn_53, rn_54, rn_55, rn_56, rn_57, rn_58, rn_59, rn_60, rn_61, rn_62, rn_63, rn_64, rn_65, rn_66, rn_67, rn_68, rn_69, rn_70, rn_71
+        );
+    // Verify f_num^2[0] (c0 real, Montgomery)
+    assert!(fp_eq(sq_0, sq_1, sq_2, sq_3, sq_4, sq_5,
+        0x64254a1be2d5add6, 0xe1c6e4717234592d,
+        0x709c7d35f773afd8, 0x6d4f51b59797faca,
+        0x65a49df4022e5b8f, 0x136bb9182504921d));
+    // Verify f_num^2[0] (c0 imaginary, Montgomery)
+    assert!(fp_eq(sq_6, sq_7, sq_8, sq_9, sq_10, sq_11,
+        0x1768e76f2fbd6806, 0xf649381a7bf312a4,
+        0x760d31326f114523, 0x7cd911f3534493e7,
+        0xf4d8cbb7f33b0ed5, 0x092e57b33dd8d801));
 }
