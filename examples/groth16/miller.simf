@@ -476,6 +476,340 @@ fn g2add(
      rz0, rz1, rz2, rz3, rz4, rz5, rz6, rz7, rz8, rz9, rz10, rz11)
 }
 
+// ============================================================
+// Miller loop step function for for_while
+// State = ([(u256,u128);32], u64)
+//   slots 0-11: f_num (Fp12), 12-23: f_den (Fp12),
+//   24-25: R.X (Fp2), 26-27: R.Y (Fp2), 28-31: padding
+//   u64: param bits (MSB = current bit)
+// Env = [(u256,u128);8]
+//   slots 0: P.x, 1: P.y, 2-3: Q.X (Fp2), 4-5: Q.Y (Fp2), 6-7: padding
+// ============================================================
+
+fn unpack32(arr: [(u256, u128); 32]) -> (
+    (u256, u128), (u256, u128), (u256, u128), (u256, u128), (u256, u128), (u256, u128), (u256, u128), (u256, u128),
+    (u256, u128), (u256, u128), (u256, u128), (u256, u128), (u256, u128), (u256, u128), (u256, u128), (u256, u128),
+    (u256, u128), (u256, u128), (u256, u128), (u256, u128), (u256, u128), (u256, u128), (u256, u128), (u256, u128),
+    (u256, u128), (u256, u128), (u256, u128), (u256, u128), (u256, u128), (u256, u128), (u256, u128), (u256, u128)
+) {
+    let (h0, h1): ([(u256, u128); 16], [(u256, u128); 16]) = <[(u256, u128); 32]>::into(arr);
+    let (q0, q1): ([(u256, u128); 8], [(u256, u128); 8]) = <[(u256, u128); 16]>::into(h0);
+    let (q2, q3): ([(u256, u128); 8], [(u256, u128); 8]) = <[(u256, u128); 16]>::into(h1);
+    let (e0, e1): ([(u256, u128); 4], [(u256, u128); 4]) = <[(u256, u128); 8]>::into(q0);
+    let (e2, e3): ([(u256, u128); 4], [(u256, u128); 4]) = <[(u256, u128); 8]>::into(q1);
+    let (e4, e5): ([(u256, u128); 4], [(u256, u128); 4]) = <[(u256, u128); 8]>::into(q2);
+    let (e6, e7): ([(u256, u128); 4], [(u256, u128); 4]) = <[(u256, u128); 8]>::into(q3);
+    let ((s0, s1), (s2, s3)): (((u256, u128), (u256, u128)), ((u256, u128), (u256, u128))) = <[(u256, u128); 4]>::into(e0);
+    let ((s4, s5), (s6, s7)): (((u256, u128), (u256, u128)), ((u256, u128), (u256, u128))) = <[(u256, u128); 4]>::into(e1);
+    let ((s8, s9), (s10, s11)): (((u256, u128), (u256, u128)), ((u256, u128), (u256, u128))) = <[(u256, u128); 4]>::into(e2);
+    let ((s12, s13), (s14, s15)): (((u256, u128), (u256, u128)), ((u256, u128), (u256, u128))) = <[(u256, u128); 4]>::into(e3);
+    let ((s16, s17), (s18, s19)): (((u256, u128), (u256, u128)), ((u256, u128), (u256, u128))) = <[(u256, u128); 4]>::into(e4);
+    let ((s20, s21), (s22, s23)): (((u256, u128), (u256, u128)), ((u256, u128), (u256, u128))) = <[(u256, u128); 4]>::into(e5);
+    let ((s24, s25), (s26, s27)): (((u256, u128), (u256, u128)), ((u256, u128), (u256, u128))) = <[(u256, u128); 4]>::into(e6);
+    let ((s28, s29), (s30, s31)): (((u256, u128), (u256, u128)), ((u256, u128), (u256, u128))) = <[(u256, u128); 4]>::into(e7);
+    (s0, s1, s2, s3, s4, s5, s6, s7, s8, s9, s10, s11, s12, s13, s14, s15,
+     s16, s17, s18, s19, s20, s21, s22, s23, s24, s25, s26, s27, s28, s29, s30, s31)
+}
+
+fn unpack8(arr: [(u256, u128); 8]) -> (
+    (u256, u128), (u256, u128), (u256, u128), (u256, u128),
+    (u256, u128), (u256, u128), (u256, u128), (u256, u128)
+) {
+    let (e0, e1): ([(u256, u128); 4], [(u256, u128); 4]) = <[(u256, u128); 8]>::into(arr);
+    let ((s0, s1), (s2, s3)): (((u256, u128), (u256, u128)), ((u256, u128), (u256, u128))) = <[(u256, u128); 4]>::into(e0);
+    let ((s4, s5), (s6, s7)): (((u256, u128), (u256, u128)), ((u256, u128), (u256, u128))) = <[(u256, u128); 4]>::into(e1);
+    (s0, s1, s2, s3, s4, s5, s6, s7)
+}
+
+fn pack32(
+    s0: (u256, u128), s1: (u256, u128), s2: (u256, u128), s3: (u256, u128),
+    s4: (u256, u128), s5: (u256, u128), s6: (u256, u128), s7: (u256, u128),
+    s8: (u256, u128), s9: (u256, u128), s10: (u256, u128), s11: (u256, u128),
+    s12: (u256, u128), s13: (u256, u128), s14: (u256, u128), s15: (u256, u128),
+    s16: (u256, u128), s17: (u256, u128), s18: (u256, u128), s19: (u256, u128),
+    s20: (u256, u128), s21: (u256, u128), s22: (u256, u128), s23: (u256, u128),
+    s24: (u256, u128), s25: (u256, u128), s26: (u256, u128), s27: (u256, u128),
+    s28: (u256, u128), s29: (u256, u128), s30: (u256, u128), s31: (u256, u128)
+) -> [(u256, u128); 32] {
+    let e0: [(u256, u128); 4] = <(((u256, u128), (u256, u128)), ((u256, u128), (u256, u128)))>::into(((s0, s1), (s2, s3)));
+    let e1: [(u256, u128); 4] = <(((u256, u128), (u256, u128)), ((u256, u128), (u256, u128)))>::into(((s4, s5), (s6, s7)));
+    let e2: [(u256, u128); 4] = <(((u256, u128), (u256, u128)), ((u256, u128), (u256, u128)))>::into(((s8, s9), (s10, s11)));
+    let e3: [(u256, u128); 4] = <(((u256, u128), (u256, u128)), ((u256, u128), (u256, u128)))>::into(((s12, s13), (s14, s15)));
+    let e4: [(u256, u128); 4] = <(((u256, u128), (u256, u128)), ((u256, u128), (u256, u128)))>::into(((s16, s17), (s18, s19)));
+    let e5: [(u256, u128); 4] = <(((u256, u128), (u256, u128)), ((u256, u128), (u256, u128)))>::into(((s20, s21), (s22, s23)));
+    let e6: [(u256, u128); 4] = <(((u256, u128), (u256, u128)), ((u256, u128), (u256, u128)))>::into(((s24, s25), (s26, s27)));
+    let e7: [(u256, u128); 4] = <(((u256, u128), (u256, u128)), ((u256, u128), (u256, u128)))>::into(((s28, s29), (s30, s31)));
+    let q0: [(u256, u128); 8] = <([(u256, u128); 4], [(u256, u128); 4])>::into((e0, e1));
+    let q1: [(u256, u128); 8] = <([(u256, u128); 4], [(u256, u128); 4])>::into((e2, e3));
+    let q2: [(u256, u128); 8] = <([(u256, u128); 4], [(u256, u128); 4])>::into((e4, e5));
+    let q3: [(u256, u128); 8] = <([(u256, u128); 4], [(u256, u128); 4])>::into((e6, e7));
+    let h0: [(u256, u128); 16] = <([(u256, u128); 8], [(u256, u128); 8])>::into((q0, q1));
+    let h1: [(u256, u128); 16] = <([(u256, u128); 8], [(u256, u128); 8])>::into((q2, q3));
+    <([(u256, u128); 16], [(u256, u128); 16])>::into((h0, h1))
+}
+
+fn miller_step(
+    state: ([(u256, u128); 32], u64),
+    env: [(u256, u128); 8],
+    counter: u16
+) -> Either<[(u256, u128); 32], ([(u256, u128); 32], u64)> {
+    let (arr, param): ([(u256, u128); 32], u64) = state;
+    // Unpack state array
+    let (s0, s1, s2, s3, s4, s5, s6, s7, s8, s9, s10, s11, s12, s13, s14, s15,
+         s16, s17, s18, s19, s20, s21, s22, s23, s24, s25, s26, s27, s28, s29, s30, s31):
+        ((u256, u128), (u256, u128), (u256, u128), (u256, u128), (u256, u128), (u256, u128), (u256, u128), (u256, u128),
+         (u256, u128), (u256, u128), (u256, u128), (u256, u128), (u256, u128), (u256, u128), (u256, u128), (u256, u128),
+         (u256, u128), (u256, u128), (u256, u128), (u256, u128), (u256, u128), (u256, u128), (u256, u128), (u256, u128),
+         (u256, u128), (u256, u128), (u256, u128), (u256, u128), (u256, u128), (u256, u128), (u256, u128), (u256, u128)) = unpack32(arr);
+    // Unpack env
+    let (ev0, ev1, ev2, ev3, ev4, ev5, ev6, ev7):
+        ((u256, u128), (u256, u128), (u256, u128), (u256, u128),
+         (u256, u128), (u256, u128), (u256, u128), (u256, u128)) = unpack8(env);
+    // Unpack f_num (slots 0-11 -> 72 u64)
+    let (fn0, fn1, fn2, fn3, fn4, fn5): (u64, u64, u64, u64, u64, u64) = up(s0);
+    let (fn6, fn7, fn8, fn9, fn10, fn11): (u64, u64, u64, u64, u64, u64) = up(s1);
+    let (fn12, fn13, fn14, fn15, fn16, fn17): (u64, u64, u64, u64, u64, u64) = up(s2);
+    let (fn18, fn19, fn20, fn21, fn22, fn23): (u64, u64, u64, u64, u64, u64) = up(s3);
+    let (fn24, fn25, fn26, fn27, fn28, fn29): (u64, u64, u64, u64, u64, u64) = up(s4);
+    let (fn30, fn31, fn32, fn33, fn34, fn35): (u64, u64, u64, u64, u64, u64) = up(s5);
+    let (fn36, fn37, fn38, fn39, fn40, fn41): (u64, u64, u64, u64, u64, u64) = up(s6);
+    let (fn42, fn43, fn44, fn45, fn46, fn47): (u64, u64, u64, u64, u64, u64) = up(s7);
+    let (fn48, fn49, fn50, fn51, fn52, fn53): (u64, u64, u64, u64, u64, u64) = up(s8);
+    let (fn54, fn55, fn56, fn57, fn58, fn59): (u64, u64, u64, u64, u64, u64) = up(s9);
+    let (fn60, fn61, fn62, fn63, fn64, fn65): (u64, u64, u64, u64, u64, u64) = up(s10);
+    let (fn66, fn67, fn68, fn69, fn70, fn71): (u64, u64, u64, u64, u64, u64) = up(s11);
+    // Unpack f_den (slots 12-23 -> 72 u64)
+    let (fd0, fd1, fd2, fd3, fd4, fd5): (u64, u64, u64, u64, u64, u64) = up(s12);
+    let (fd6, fd7, fd8, fd9, fd10, fd11): (u64, u64, u64, u64, u64, u64) = up(s13);
+    let (fd12, fd13, fd14, fd15, fd16, fd17): (u64, u64, u64, u64, u64, u64) = up(s14);
+    let (fd18, fd19, fd20, fd21, fd22, fd23): (u64, u64, u64, u64, u64, u64) = up(s15);
+    let (fd24, fd25, fd26, fd27, fd28, fd29): (u64, u64, u64, u64, u64, u64) = up(s16);
+    let (fd30, fd31, fd32, fd33, fd34, fd35): (u64, u64, u64, u64, u64, u64) = up(s17);
+    let (fd36, fd37, fd38, fd39, fd40, fd41): (u64, u64, u64, u64, u64, u64) = up(s18);
+    let (fd42, fd43, fd44, fd45, fd46, fd47): (u64, u64, u64, u64, u64, u64) = up(s19);
+    let (fd48, fd49, fd50, fd51, fd52, fd53): (u64, u64, u64, u64, u64, u64) = up(s20);
+    let (fd54, fd55, fd56, fd57, fd58, fd59): (u64, u64, u64, u64, u64, u64) = up(s21);
+    let (fd60, fd61, fd62, fd63, fd64, fd65): (u64, u64, u64, u64, u64, u64) = up(s22);
+    let (fd66, fd67, fd68, fd69, fd70, fd71): (u64, u64, u64, u64, u64, u64) = up(s23);
+    // Unpack R (affine Fp2)
+    let (rx0, rx1, rx2, rx3, rx4, rx5): (u64, u64, u64, u64, u64, u64) = up(s24);
+    let (rx6, rx7, rx8, rx9, rx10, rx11): (u64, u64, u64, u64, u64, u64) = up(s25);
+    let (ry0, ry1, ry2, ry3, ry4, ry5): (u64, u64, u64, u64, u64, u64) = up(s26);
+    let (ry6, ry7, ry8, ry9, ry10, ry11): (u64, u64, u64, u64, u64, u64) = up(s27);
+    // Unpack P and Q from env
+    let (px0, px1, px2, px3, px4, px5): (u64, u64, u64, u64, u64, u64) = up(ev0);
+    let (py0, py1, py2, py3, py4, py5): (u64, u64, u64, u64, u64, u64) = up(ev1);
+    let (qx0, qx1, qx2, qx3, qx4, qx5): (u64, u64, u64, u64, u64, u64) = up(ev2);
+    let (qx6, qx7, qx8, qx9, qx10, qx11): (u64, u64, u64, u64, u64, u64) = up(ev3);
+    let (qy0, qy1, qy2, qy3, qy4, qy5): (u64, u64, u64, u64, u64, u64) = up(ev4);
+    let (qy6, qy7, qy8, qy9, qy10, qy11): (u64, u64, u64, u64, u64, u64) = up(ev5);
+    // Z = (1, 0) in Montgomery for affine->Jacobian
+    let one0: u64 = 0x760900000002fffd; let one1: u64 = 0xebf4000bc40c0002;
+    let one2: u64 = 0x5f48985753c758ba; let one3: u64 = 0x77ce585370525745;
+    let one4: u64 = 0x5c071a97a256ec6d; let one5: u64 = 0x15f65ec3fa80e493;
+    let z: u64 = 0;
+    // Step 1: f_num = f_num^2, f_den = f_den^2
+    let (fn0, fn1, fn2, fn3, fn4, fn5, fn6, fn7, fn8, fn9, fn10, fn11, fn12, fn13, fn14, fn15, fn16, fn17, fn18, fn19, fn20, fn21, fn22, fn23, fn24, fn25, fn26, fn27, fn28, fn29, fn30, fn31, fn32, fn33, fn34, fn35, fn36, fn37, fn38, fn39, fn40, fn41, fn42, fn43, fn44, fn45, fn46, fn47, fn48, fn49, fn50, fn51, fn52, fn53, fn54, fn55, fn56, fn57, fn58, fn59, fn60, fn61, fn62, fn63, fn64, fn65, fn66, fn67, fn68, fn69, fn70, fn71):
+        (u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64) =
+        fp12_mul(fn0, fn1, fn2, fn3, fn4, fn5, fn6, fn7, fn8, fn9, fn10, fn11, fn12, fn13, fn14, fn15, fn16, fn17, fn18, fn19, fn20, fn21, fn22, fn23, fn24, fn25, fn26, fn27, fn28, fn29, fn30, fn31, fn32, fn33, fn34, fn35, fn36, fn37, fn38, fn39, fn40, fn41, fn42, fn43, fn44, fn45, fn46, fn47, fn48, fn49, fn50, fn51, fn52, fn53, fn54, fn55, fn56, fn57, fn58, fn59, fn60, fn61, fn62, fn63, fn64, fn65, fn66, fn67, fn68, fn69, fn70, fn71,
+                 fn0, fn1, fn2, fn3, fn4, fn5, fn6, fn7, fn8, fn9, fn10, fn11, fn12, fn13, fn14, fn15, fn16, fn17, fn18, fn19, fn20, fn21, fn22, fn23, fn24, fn25, fn26, fn27, fn28, fn29, fn30, fn31, fn32, fn33, fn34, fn35, fn36, fn37, fn38, fn39, fn40, fn41, fn42, fn43, fn44, fn45, fn46, fn47, fn48, fn49, fn50, fn51, fn52, fn53, fn54, fn55, fn56, fn57, fn58, fn59, fn60, fn61, fn62, fn63, fn64, fn65, fn66, fn67, fn68, fn69, fn70, fn71);
+    let (fd0, fd1, fd2, fd3, fd4, fd5, fd6, fd7, fd8, fd9, fd10, fd11, fd12, fd13, fd14, fd15, fd16, fd17, fd18, fd19, fd20, fd21, fd22, fd23, fd24, fd25, fd26, fd27, fd28, fd29, fd30, fd31, fd32, fd33, fd34, fd35, fd36, fd37, fd38, fd39, fd40, fd41, fd42, fd43, fd44, fd45, fd46, fd47, fd48, fd49, fd50, fd51, fd52, fd53, fd54, fd55, fd56, fd57, fd58, fd59, fd60, fd61, fd62, fd63, fd64, fd65, fd66, fd67, fd68, fd69, fd70, fd71):
+        (u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64) =
+        fp12_mul(fd0, fd1, fd2, fd3, fd4, fd5, fd6, fd7, fd8, fd9, fd10, fd11, fd12, fd13, fd14, fd15, fd16, fd17, fd18, fd19, fd20, fd21, fd22, fd23, fd24, fd25, fd26, fd27, fd28, fd29, fd30, fd31, fd32, fd33, fd34, fd35, fd36, fd37, fd38, fd39, fd40, fd41, fd42, fd43, fd44, fd45, fd46, fd47, fd48, fd49, fd50, fd51, fd52, fd53, fd54, fd55, fd56, fd57, fd58, fd59, fd60, fd61, fd62, fd63, fd64, fd65, fd66, fd67, fd68, fd69, fd70, fd71,
+                 fd0, fd1, fd2, fd3, fd4, fd5, fd6, fd7, fd8, fd9, fd10, fd11, fd12, fd13, fd14, fd15, fd16, fd17, fd18, fd19, fd20, fd21, fd22, fd23, fd24, fd25, fd26, fd27, fd28, fd29, fd30, fd31, fd32, fd33, fd34, fd35, fd36, fd37, fd38, fd39, fd40, fd41, fd42, fd43, fd44, fd45, fd46, fd47, fd48, fd49, fd50, fd51, fd52, fd53, fd54, fd55, fd56, fd57, fd58, fd59, fd60, fd61, fd62, fd63, fd64, fd65, fd66, fd67, fd68, fd69, fd70, fd71);
+    // Step 2: line_double(R, P) -> (line_n, line_d)
+    let (ln0, ln1, ln2, ln3, ln4, ln5, ln6, ln7, ln8, ln9, ln10, ln11, ln12, ln13, ln14, ln15, ln16, ln17, ln18, ln19, ln20, ln21, ln22, ln23, ln24, ln25, ln26, ln27, ln28, ln29, ln30, ln31, ln32, ln33, ln34, ln35, ln36, ln37, ln38, ln39, ln40, ln41, ln42, ln43, ln44, ln45, ln46, ln47, ln48, ln49, ln50, ln51, ln52, ln53, ln54, ln55, ln56, ln57, ln58, ln59, ln60, ln61, ln62, ln63, ln64, ln65, ln66, ln67, ln68, ln69, ln70, ln71,
+         ld0, ld1, ld2, ld3, ld4, ld5, ld6, ld7, ld8, ld9, ld10, ld11, ld12, ld13, ld14, ld15, ld16, ld17, ld18, ld19, ld20, ld21, ld22, ld23, ld24, ld25, ld26, ld27, ld28, ld29, ld30, ld31, ld32, ld33, ld34, ld35, ld36, ld37, ld38, ld39, ld40, ld41, ld42, ld43, ld44, ld45, ld46, ld47, ld48, ld49, ld50, ld51, ld52, ld53, ld54, ld55, ld56, ld57, ld58, ld59, ld60, ld61, ld62, ld63, ld64, ld65, ld66, ld67, ld68, ld69, ld70, ld71):
+        (u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64,
+         u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64) =
+        line_double(rx0, rx1, rx2, rx3, rx4, rx5, rx6, rx7, rx8, rx9, rx10, rx11,
+                    ry0, ry1, ry2, ry3, ry4, ry5, ry6, ry7, ry8, ry9, ry10, ry11,
+                    one0, one1, one2, one3, one4, one5, z, z, z, z, z, z,
+                    px0, px1, px2, px3, px4, px5, py0, py1, py2, py3, py4, py5);
+    // Step 3: f_num = f_num * line_n, f_den = f_den * line_d
+    let (fn0, fn1, fn2, fn3, fn4, fn5, fn6, fn7, fn8, fn9, fn10, fn11, fn12, fn13, fn14, fn15, fn16, fn17, fn18, fn19, fn20, fn21, fn22, fn23, fn24, fn25, fn26, fn27, fn28, fn29, fn30, fn31, fn32, fn33, fn34, fn35, fn36, fn37, fn38, fn39, fn40, fn41, fn42, fn43, fn44, fn45, fn46, fn47, fn48, fn49, fn50, fn51, fn52, fn53, fn54, fn55, fn56, fn57, fn58, fn59, fn60, fn61, fn62, fn63, fn64, fn65, fn66, fn67, fn68, fn69, fn70, fn71):
+        (u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64) =
+        fp12_mul(fn0, fn1, fn2, fn3, fn4, fn5, fn6, fn7, fn8, fn9, fn10, fn11, fn12, fn13, fn14, fn15, fn16, fn17, fn18, fn19, fn20, fn21, fn22, fn23, fn24, fn25, fn26, fn27, fn28, fn29, fn30, fn31, fn32, fn33, fn34, fn35, fn36, fn37, fn38, fn39, fn40, fn41, fn42, fn43, fn44, fn45, fn46, fn47, fn48, fn49, fn50, fn51, fn52, fn53, fn54, fn55, fn56, fn57, fn58, fn59, fn60, fn61, fn62, fn63, fn64, fn65, fn66, fn67, fn68, fn69, fn70, fn71,
+                 ln0, ln1, ln2, ln3, ln4, ln5, ln6, ln7, ln8, ln9, ln10, ln11, ln12, ln13, ln14, ln15, ln16, ln17, ln18, ln19, ln20, ln21, ln22, ln23, ln24, ln25, ln26, ln27, ln28, ln29, ln30, ln31, ln32, ln33, ln34, ln35, ln36, ln37, ln38, ln39, ln40, ln41, ln42, ln43, ln44, ln45, ln46, ln47, ln48, ln49, ln50, ln51, ln52, ln53, ln54, ln55, ln56, ln57, ln58, ln59, ln60, ln61, ln62, ln63, ln64, ln65, ln66, ln67, ln68, ln69, ln70, ln71);
+    let (fd0, fd1, fd2, fd3, fd4, fd5, fd6, fd7, fd8, fd9, fd10, fd11, fd12, fd13, fd14, fd15, fd16, fd17, fd18, fd19, fd20, fd21, fd22, fd23, fd24, fd25, fd26, fd27, fd28, fd29, fd30, fd31, fd32, fd33, fd34, fd35, fd36, fd37, fd38, fd39, fd40, fd41, fd42, fd43, fd44, fd45, fd46, fd47, fd48, fd49, fd50, fd51, fd52, fd53, fd54, fd55, fd56, fd57, fd58, fd59, fd60, fd61, fd62, fd63, fd64, fd65, fd66, fd67, fd68, fd69, fd70, fd71):
+        (u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64) =
+        fp12_mul(fd0, fd1, fd2, fd3, fd4, fd5, fd6, fd7, fd8, fd9, fd10, fd11, fd12, fd13, fd14, fd15, fd16, fd17, fd18, fd19, fd20, fd21, fd22, fd23, fd24, fd25, fd26, fd27, fd28, fd29, fd30, fd31, fd32, fd33, fd34, fd35, fd36, fd37, fd38, fd39, fd40, fd41, fd42, fd43, fd44, fd45, fd46, fd47, fd48, fd49, fd50, fd51, fd52, fd53, fd54, fd55, fd56, fd57, fd58, fd59, fd60, fd61, fd62, fd63, fd64, fd65, fd66, fd67, fd68, fd69, fd70, fd71,
+                 ld0, ld1, ld2, ld3, ld4, ld5, ld6, ld7, ld8, ld9, ld10, ld11, ld12, ld13, ld14, ld15, ld16, ld17, ld18, ld19, ld20, ld21, ld22, ld23, ld24, ld25, ld26, ld27, ld28, ld29, ld30, ld31, ld32, ld33, ld34, ld35, ld36, ld37, ld38, ld39, ld40, ld41, ld42, ld43, ld44, ld45, ld46, ld47, ld48, ld49, ld50, ld51, ld52, ld53, ld54, ld55, ld56, ld57, ld58, ld59, ld60, ld61, ld62, ld63, ld64, ld65, ld66, ld67, ld68, ld69, ld70, ld71);
+    // Step 4: R = g2dbl(R) then jac_to_affine
+    let (rx0, rx1, rx2, rx3, rx4, rx5, rx6, rx7, rx8, rx9, rx10, rx11,
+         ry0, ry1, ry2, ry3, ry4, ry5, ry6, ry7, ry8, ry9, ry10, ry11,
+         rz0, rz1, rz2, rz3, rz4, rz5, rz6, rz7, rz8, rz9, rz10, rz11):
+        (u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64,
+         u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64,
+         u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64) =
+        g2dbl(rx0, rx1, rx2, rx3, rx4, rx5, rx6, rx7, rx8, rx9, rx10, rx11,
+              ry0, ry1, ry2, ry3, ry4, ry5, ry6, ry7, ry8, ry9, ry10, ry11,
+              one0, one1, one2, one3, one4, one5, z, z, z, z, z, z);
+    let (rx0, rx1, rx2, rx3, rx4, rx5, rx6, rx7, rx8, rx9, rx10, rx11,
+         ry0, ry1, ry2, ry3, ry4, ry5, ry6, ry7, ry8, ry9, ry10, ry11):
+        (u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64,
+         u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64) =
+        jac_to_affine(rx0, rx1, rx2, rx3, rx4, rx5, rx6, rx7, rx8, rx9, rx10, rx11,
+                      ry0, ry1, ry2, ry3, ry4, ry5, ry6, ry7, ry8, ry9, ry10, ry11,
+                      rz0, rz1, rz2, rz3, rz4, rz5, rz6, rz7, rz8, rz9, rz10, rz11);
+    // Step 5: Check MSB of param for addition step
+    let msb: bool = jet::lt_64(0x7fffffffffffffff, param);
+    let (fn0, fn1, fn2, fn3, fn4, fn5, fn6, fn7, fn8, fn9, fn10, fn11, fn12, fn13, fn14, fn15, fn16, fn17, fn18, fn19, fn20, fn21, fn22, fn23, fn24, fn25, fn26, fn27, fn28, fn29, fn30, fn31, fn32, fn33, fn34, fn35, fn36, fn37, fn38, fn39, fn40, fn41, fn42, fn43, fn44, fn45, fn46, fn47, fn48, fn49, fn50, fn51, fn52, fn53, fn54, fn55, fn56, fn57, fn58, fn59, fn60, fn61, fn62, fn63, fn64, fn65, fn66, fn67, fn68, fn69, fn70, fn71,
+         fd0, fd1, fd2, fd3, fd4, fd5, fd6, fd7, fd8, fd9, fd10, fd11, fd12, fd13, fd14, fd15, fd16, fd17, fd18, fd19, fd20, fd21, fd22, fd23, fd24, fd25, fd26, fd27, fd28, fd29, fd30, fd31, fd32, fd33, fd34, fd35, fd36, fd37, fd38, fd39, fd40, fd41, fd42, fd43, fd44, fd45, fd46, fd47, fd48, fd49, fd50, fd51, fd52, fd53, fd54, fd55, fd56, fd57, fd58, fd59, fd60, fd61, fd62, fd63, fd64, fd65, fd66, fd67, fd68, fd69, fd70, fd71,
+         rx0, rx1, rx2, rx3, rx4, rx5, rx6, rx7, rx8, rx9, rx10, rx11,
+         ry0, ry1, ry2, ry3, ry4, ry5, ry6, ry7, ry8, ry9, ry10, ry11):
+        (u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64,
+         u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64,
+         u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64,
+         u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64) =
+        match msb {
+            true => {
+                // line_add(R, Q, P)
+                let (an0, an1, an2, an3, an4, an5, an6, an7, an8, an9, an10, an11, an12, an13, an14, an15, an16, an17, an18, an19, an20, an21, an22, an23, an24, an25, an26, an27, an28, an29, an30, an31, an32, an33, an34, an35, an36, an37, an38, an39, an40, an41, an42, an43, an44, an45, an46, an47, an48, an49, an50, an51, an52, an53, an54, an55, an56, an57, an58, an59, an60, an61, an62, an63, an64, an65, an66, an67, an68, an69, an70, an71,
+                     ad0, ad1, ad2, ad3, ad4, ad5, ad6, ad7, ad8, ad9, ad10, ad11, ad12, ad13, ad14, ad15, ad16, ad17, ad18, ad19, ad20, ad21, ad22, ad23, ad24, ad25, ad26, ad27, ad28, ad29, ad30, ad31, ad32, ad33, ad34, ad35, ad36, ad37, ad38, ad39, ad40, ad41, ad42, ad43, ad44, ad45, ad46, ad47, ad48, ad49, ad50, ad51, ad52, ad53, ad54, ad55, ad56, ad57, ad58, ad59, ad60, ad61, ad62, ad63, ad64, ad65, ad66, ad67, ad68, ad69, ad70, ad71):
+                    (u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64,
+                     u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64) =
+                    line_add(rx0, rx1, rx2, rx3, rx4, rx5, rx6, rx7, rx8, rx9, rx10, rx11,
+                             ry0, ry1, ry2, ry3, ry4, ry5, ry6, ry7, ry8, ry9, ry10, ry11,
+                             qx0, qx1, qx2, qx3, qx4, qx5, qx6, qx7, qx8, qx9, qx10, qx11,
+                             qy0, qy1, qy2, qy3, qy4, qy5, qy6, qy7, qy8, qy9, qy10, qy11,
+                             px0, px1, px2, px3, px4, px5, py0, py1, py2, py3, py4, py5);
+                // f_num = f_num * line_add_n
+                let (fn0, fn1, fn2, fn3, fn4, fn5, fn6, fn7, fn8, fn9, fn10, fn11, fn12, fn13, fn14, fn15, fn16, fn17, fn18, fn19, fn20, fn21, fn22, fn23, fn24, fn25, fn26, fn27, fn28, fn29, fn30, fn31, fn32, fn33, fn34, fn35, fn36, fn37, fn38, fn39, fn40, fn41, fn42, fn43, fn44, fn45, fn46, fn47, fn48, fn49, fn50, fn51, fn52, fn53, fn54, fn55, fn56, fn57, fn58, fn59, fn60, fn61, fn62, fn63, fn64, fn65, fn66, fn67, fn68, fn69, fn70, fn71):
+                    (u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64) =
+                    fp12_mul(fn0, fn1, fn2, fn3, fn4, fn5, fn6, fn7, fn8, fn9, fn10, fn11, fn12, fn13, fn14, fn15, fn16, fn17, fn18, fn19, fn20, fn21, fn22, fn23, fn24, fn25, fn26, fn27, fn28, fn29, fn30, fn31, fn32, fn33, fn34, fn35, fn36, fn37, fn38, fn39, fn40, fn41, fn42, fn43, fn44, fn45, fn46, fn47, fn48, fn49, fn50, fn51, fn52, fn53, fn54, fn55, fn56, fn57, fn58, fn59, fn60, fn61, fn62, fn63, fn64, fn65, fn66, fn67, fn68, fn69, fn70, fn71,
+                             an0, an1, an2, an3, an4, an5, an6, an7, an8, an9, an10, an11, an12, an13, an14, an15, an16, an17, an18, an19, an20, an21, an22, an23, an24, an25, an26, an27, an28, an29, an30, an31, an32, an33, an34, an35, an36, an37, an38, an39, an40, an41, an42, an43, an44, an45, an46, an47, an48, an49, an50, an51, an52, an53, an54, an55, an56, an57, an58, an59, an60, an61, an62, an63, an64, an65, an66, an67, an68, an69, an70, an71);
+                // f_den = f_den * line_add_d
+                let (fd0, fd1, fd2, fd3, fd4, fd5, fd6, fd7, fd8, fd9, fd10, fd11, fd12, fd13, fd14, fd15, fd16, fd17, fd18, fd19, fd20, fd21, fd22, fd23, fd24, fd25, fd26, fd27, fd28, fd29, fd30, fd31, fd32, fd33, fd34, fd35, fd36, fd37, fd38, fd39, fd40, fd41, fd42, fd43, fd44, fd45, fd46, fd47, fd48, fd49, fd50, fd51, fd52, fd53, fd54, fd55, fd56, fd57, fd58, fd59, fd60, fd61, fd62, fd63, fd64, fd65, fd66, fd67, fd68, fd69, fd70, fd71):
+                    (u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64) =
+                    fp12_mul(fd0, fd1, fd2, fd3, fd4, fd5, fd6, fd7, fd8, fd9, fd10, fd11, fd12, fd13, fd14, fd15, fd16, fd17, fd18, fd19, fd20, fd21, fd22, fd23, fd24, fd25, fd26, fd27, fd28, fd29, fd30, fd31, fd32, fd33, fd34, fd35, fd36, fd37, fd38, fd39, fd40, fd41, fd42, fd43, fd44, fd45, fd46, fd47, fd48, fd49, fd50, fd51, fd52, fd53, fd54, fd55, fd56, fd57, fd58, fd59, fd60, fd61, fd62, fd63, fd64, fd65, fd66, fd67, fd68, fd69, fd70, fd71,
+                             ad0, ad1, ad2, ad3, ad4, ad5, ad6, ad7, ad8, ad9, ad10, ad11, ad12, ad13, ad14, ad15, ad16, ad17, ad18, ad19, ad20, ad21, ad22, ad23, ad24, ad25, ad26, ad27, ad28, ad29, ad30, ad31, ad32, ad33, ad34, ad35, ad36, ad37, ad38, ad39, ad40, ad41, ad42, ad43, ad44, ad45, ad46, ad47, ad48, ad49, ad50, ad51, ad52, ad53, ad54, ad55, ad56, ad57, ad58, ad59, ad60, ad61, ad62, ad63, ad64, ad65, ad66, ad67, ad68, ad69, ad70, ad71);
+                // R = g2add(R, Q) then jac_to_affine
+                let (rx0, rx1, rx2, rx3, rx4, rx5, rx6, rx7, rx8, rx9, rx10, rx11,
+                     ry0, ry1, ry2, ry3, ry4, ry5, ry6, ry7, ry8, ry9, ry10, ry11,
+                     rz0, rz1, rz2, rz3, rz4, rz5, rz6, rz7, rz8, rz9, rz10, rz11):
+                    (u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64,
+                     u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64,
+                     u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64) =
+                    g2add(rx0, rx1, rx2, rx3, rx4, rx5, rx6, rx7, rx8, rx9, rx10, rx11,
+                          ry0, ry1, ry2, ry3, ry4, ry5, ry6, ry7, ry8, ry9, ry10, ry11,
+                          one0, one1, one2, one3, one4, one5, z, z, z, z, z, z,
+                          qx0, qx1, qx2, qx3, qx4, qx5, qx6, qx7, qx8, qx9, qx10, qx11,
+                          qy0, qy1, qy2, qy3, qy4, qy5, qy6, qy7, qy8, qy9, qy10, qy11,
+                          one0, one1, one2, one3, one4, one5, z, z, z, z, z, z);
+                let (rx0, rx1, rx2, rx3, rx4, rx5, rx6, rx7, rx8, rx9, rx10, rx11,
+                     ry0, ry1, ry2, ry3, ry4, ry5, ry6, ry7, ry8, ry9, ry10, ry11):
+                    (u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64,
+                     u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64) =
+                    jac_to_affine(rx0, rx1, rx2, rx3, rx4, rx5, rx6, rx7, rx8, rx9, rx10, rx11,
+                                  ry0, ry1, ry2, ry3, ry4, ry5, ry6, ry7, ry8, ry9, ry10, ry11,
+                                  rz0, rz1, rz2, rz3, rz4, rz5, rz6, rz7, rz8, rz9, rz10, rz11);
+                (fn0, fn1, fn2, fn3, fn4, fn5, fn6, fn7, fn8, fn9, fn10, fn11, fn12, fn13, fn14, fn15, fn16, fn17, fn18, fn19, fn20, fn21, fn22, fn23, fn24, fn25, fn26, fn27, fn28, fn29, fn30, fn31, fn32, fn33, fn34, fn35, fn36, fn37, fn38, fn39, fn40, fn41, fn42, fn43, fn44, fn45, fn46, fn47, fn48, fn49, fn50, fn51, fn52, fn53, fn54, fn55, fn56, fn57, fn58, fn59, fn60, fn61, fn62, fn63, fn64, fn65, fn66, fn67, fn68, fn69, fn70, fn71,
+                 fd0, fd1, fd2, fd3, fd4, fd5, fd6, fd7, fd8, fd9, fd10, fd11, fd12, fd13, fd14, fd15, fd16, fd17, fd18, fd19, fd20, fd21, fd22, fd23, fd24, fd25, fd26, fd27, fd28, fd29, fd30, fd31, fd32, fd33, fd34, fd35, fd36, fd37, fd38, fd39, fd40, fd41, fd42, fd43, fd44, fd45, fd46, fd47, fd48, fd49, fd50, fd51, fd52, fd53, fd54, fd55, fd56, fd57, fd58, fd59, fd60, fd61, fd62, fd63, fd64, fd65, fd66, fd67, fd68, fd69, fd70, fd71,
+                 rx0, rx1, rx2, rx3, rx4, rx5, rx6, rx7, rx8, rx9, rx10, rx11,
+                 ry0, ry1, ry2, ry3, ry4, ry5, ry6, ry7, ry8, ry9, ry10, ry11)
+            },
+            false => {
+                (fn0, fn1, fn2, fn3, fn4, fn5, fn6, fn7, fn8, fn9, fn10, fn11, fn12, fn13, fn14, fn15, fn16, fn17, fn18, fn19, fn20, fn21, fn22, fn23, fn24, fn25, fn26, fn27, fn28, fn29, fn30, fn31, fn32, fn33, fn34, fn35, fn36, fn37, fn38, fn39, fn40, fn41, fn42, fn43, fn44, fn45, fn46, fn47, fn48, fn49, fn50, fn51, fn52, fn53, fn54, fn55, fn56, fn57, fn58, fn59, fn60, fn61, fn62, fn63, fn64, fn65, fn66, fn67, fn68, fn69, fn70, fn71,
+                 fd0, fd1, fd2, fd3, fd4, fd5, fd6, fd7, fd8, fd9, fd10, fd11, fd12, fd13, fd14, fd15, fd16, fd17, fd18, fd19, fd20, fd21, fd22, fd23, fd24, fd25, fd26, fd27, fd28, fd29, fd30, fd31, fd32, fd33, fd34, fd35, fd36, fd37, fd38, fd39, fd40, fd41, fd42, fd43, fd44, fd45, fd46, fd47, fd48, fd49, fd50, fd51, fd52, fd53, fd54, fd55, fd56, fd57, fd58, fd59, fd60, fd61, fd62, fd63, fd64, fd65, fd66, fd67, fd68, fd69, fd70, fd71,
+                 rx0, rx1, rx2, rx3, rx4, rx5, rx6, rx7, rx8, rx9, rx10, rx11,
+                 ry0, ry1, ry2, ry3, ry4, ry5, ry6, ry7, ry8, ry9, ry10, ry11)
+            },
+        };
+    // Shift param left by 1
+    let zero_bit: u1 = 0;
+    let (_, new_param): (u1, u64) = jet::full_left_shift_64_1(param, zero_bit);
+    // Pack result
+    let zp: (u256, u128) = pk(z, z, z, z, z, z);
+    let result: [(u256, u128); 32] = pack32(
+        pk(fn0, fn1, fn2, fn3, fn4, fn5), pk(fn6, fn7, fn8, fn9, fn10, fn11),
+        pk(fn12, fn13, fn14, fn15, fn16, fn17), pk(fn18, fn19, fn20, fn21, fn22, fn23),
+        pk(fn24, fn25, fn26, fn27, fn28, fn29), pk(fn30, fn31, fn32, fn33, fn34, fn35),
+        pk(fn36, fn37, fn38, fn39, fn40, fn41), pk(fn42, fn43, fn44, fn45, fn46, fn47),
+        pk(fn48, fn49, fn50, fn51, fn52, fn53), pk(fn54, fn55, fn56, fn57, fn58, fn59),
+        pk(fn60, fn61, fn62, fn63, fn64, fn65), pk(fn66, fn67, fn68, fn69, fn70, fn71),
+        pk(fd0, fd1, fd2, fd3, fd4, fd5), pk(fd6, fd7, fd8, fd9, fd10, fd11),
+        pk(fd12, fd13, fd14, fd15, fd16, fd17), pk(fd18, fd19, fd20, fd21, fd22, fd23),
+        pk(fd24, fd25, fd26, fd27, fd28, fd29), pk(fd30, fd31, fd32, fd33, fd34, fd35),
+        pk(fd36, fd37, fd38, fd39, fd40, fd41), pk(fd42, fd43, fd44, fd45, fd46, fd47),
+        pk(fd48, fd49, fd50, fd51, fd52, fd53), pk(fd54, fd55, fd56, fd57, fd58, fd59),
+        pk(fd60, fd61, fd62, fd63, fd64, fd65), pk(fd66, fd67, fd68, fd69, fd70, fd71),
+        pk(rx0, rx1, rx2, rx3, rx4, rx5), pk(rx6, rx7, rx8, rx9, rx10, rx11),
+        pk(ry0, ry1, ry2, ry3, ry4, ry5), pk(ry6, ry7, ry8, ry9, ry10, ry11),
+        zp, zp, zp, zp);
+    match jet::eq_16(counter, 62) {
+        true => Left(result),
+        false => Right((result, new_param)),
+    }
+}
+
+fn miller_loop(
+    px0: u64, px1: u64, px2: u64, px3: u64, px4: u64, px5: u64,
+    py0: u64, py1: u64, py2: u64, py3: u64, py4: u64, py5: u64,
+    qx0: u64, qx1: u64, qx2: u64, qx3: u64, qx4: u64, qx5: u64,
+    qx6: u64, qx7: u64, qx8: u64, qx9: u64, qx10: u64, qx11: u64,
+    qy0: u64, qy1: u64, qy2: u64, qy3: u64, qy4: u64, qy5: u64,
+    qy6: u64, qy7: u64, qy8: u64, qy9: u64, qy10: u64, qy11: u64
+) -> (u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64,
+      u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64) {
+    let z: u64 = 0;
+    let one0: u64 = 0x760900000002fffd; let one1: u64 = 0xebf4000bc40c0002;
+    let one2: u64 = 0x5f48985753c758ba; let one3: u64 = 0x77ce585370525745;
+    let one4: u64 = 0x5c071a97a256ec6d; let one5: u64 = 0x15f65ec3fa80e493;
+    // Fp12 one: (one_mont, 0, 0, ..., 0) = 12 packed Fp
+    let one_pk: (u256, u128) = pk(one0, one1, one2, one3, one4, one5);
+    let zp: (u256, u128) = pk(z, z, z, z, z, z);
+    // Initial param = 0xa402000000020000 (bits after leading 1 of BLS param, with bit[0] at MSB)
+    let init_param: u64 = 0xa402000000020000;
+    // Pack initial state: f_num=Fp12 one, f_den=Fp12 one, R=Q(affine), padding
+    let init: [(u256, u128); 32] = pack32(
+        one_pk, zp, zp, zp, zp, zp, zp, zp, zp, zp, zp, zp,
+        one_pk, zp, zp, zp, zp, zp, zp, zp, zp, zp, zp, zp,
+        pk(qx0, qx1, qx2, qx3, qx4, qx5), pk(qx6, qx7, qx8, qx9, qx10, qx11),
+        pk(qy0, qy1, qy2, qy3, qy4, qy5), pk(qy6, qy7, qy8, qy9, qy10, qy11),
+        zp, zp, zp, zp);
+    // Pack env: P.x, P.y, Q.X, Q.Y, padding
+    let e0: [(u256, u128); 4] = <(((u256, u128), (u256, u128)), ((u256, u128), (u256, u128)))>::into(((pk(px0, px1, px2, px3, px4, px5), pk(py0, py1, py2, py3, py4, py5)), (pk(qx0, qx1, qx2, qx3, qx4, qx5), pk(qx6, qx7, qx8, qx9, qx10, qx11))));
+    let e1: [(u256, u128); 4] = <(((u256, u128), (u256, u128)), ((u256, u128), (u256, u128)))>::into(((pk(qy0, qy1, qy2, qy3, qy4, qy5), pk(qy6, qy7, qy8, qy9, qy10, qy11)), (zp, zp)));
+    let env: [(u256, u128); 8] = <([(u256, u128); 4], [(u256, u128); 4])>::into((e0, e1));
+    let init_state: ([(u256, u128); 32], u64) = (init, init_param);
+    let result: Either<[(u256, u128); 32], ([(u256, u128); 32], u64)> = for_while::<miller_step>(init_state, env);
+    let final_arr: [(u256, u128); 32] = unwrap_left::<([(u256, u128); 32], u64)>(result);
+    // Unpack f_num and f_den from result
+    let (s0, s1, s2, s3, s4, s5, s6, s7, s8, s9, s10, s11, s12, s13, s14, s15,
+         s16, s17, s18, s19, s20, s21, s22, s23, s24, s25, s26, s27, s28, s29, s30, s31):
+        ((u256, u128), (u256, u128), (u256, u128), (u256, u128), (u256, u128), (u256, u128), (u256, u128), (u256, u128),
+         (u256, u128), (u256, u128), (u256, u128), (u256, u128), (u256, u128), (u256, u128), (u256, u128), (u256, u128),
+         (u256, u128), (u256, u128), (u256, u128), (u256, u128), (u256, u128), (u256, u128), (u256, u128), (u256, u128),
+         (u256, u128), (u256, u128), (u256, u128), (u256, u128), (u256, u128), (u256, u128), (u256, u128), (u256, u128)) = unpack32(final_arr);
+    let (fn0, fn1, fn2, fn3, fn4, fn5): (u64, u64, u64, u64, u64, u64) = up(s0);
+    let (fn6, fn7, fn8, fn9, fn10, fn11): (u64, u64, u64, u64, u64, u64) = up(s1);
+    let (fn12, fn13, fn14, fn15, fn16, fn17): (u64, u64, u64, u64, u64, u64) = up(s2);
+    let (fn18, fn19, fn20, fn21, fn22, fn23): (u64, u64, u64, u64, u64, u64) = up(s3);
+    let (fn24, fn25, fn26, fn27, fn28, fn29): (u64, u64, u64, u64, u64, u64) = up(s4);
+    let (fn30, fn31, fn32, fn33, fn34, fn35): (u64, u64, u64, u64, u64, u64) = up(s5);
+    let (fn36, fn37, fn38, fn39, fn40, fn41): (u64, u64, u64, u64, u64, u64) = up(s6);
+    let (fn42, fn43, fn44, fn45, fn46, fn47): (u64, u64, u64, u64, u64, u64) = up(s7);
+    let (fn48, fn49, fn50, fn51, fn52, fn53): (u64, u64, u64, u64, u64, u64) = up(s8);
+    let (fn54, fn55, fn56, fn57, fn58, fn59): (u64, u64, u64, u64, u64, u64) = up(s9);
+    let (fn60, fn61, fn62, fn63, fn64, fn65): (u64, u64, u64, u64, u64, u64) = up(s10);
+    let (fn66, fn67, fn68, fn69, fn70, fn71): (u64, u64, u64, u64, u64, u64) = up(s11);
+    let (fd0, fd1, fd2, fd3, fd4, fd5): (u64, u64, u64, u64, u64, u64) = up(s12);
+    let (fd6, fd7, fd8, fd9, fd10, fd11): (u64, u64, u64, u64, u64, u64) = up(s13);
+    let (fd12, fd13, fd14, fd15, fd16, fd17): (u64, u64, u64, u64, u64, u64) = up(s14);
+    let (fd18, fd19, fd20, fd21, fd22, fd23): (u64, u64, u64, u64, u64, u64) = up(s15);
+    let (fd24, fd25, fd26, fd27, fd28, fd29): (u64, u64, u64, u64, u64, u64) = up(s16);
+    let (fd30, fd31, fd32, fd33, fd34, fd35): (u64, u64, u64, u64, u64, u64) = up(s17);
+    let (fd36, fd37, fd38, fd39, fd40, fd41): (u64, u64, u64, u64, u64, u64) = up(s18);
+    let (fd42, fd43, fd44, fd45, fd46, fd47): (u64, u64, u64, u64, u64, u64) = up(s19);
+    let (fd48, fd49, fd50, fd51, fd52, fd53): (u64, u64, u64, u64, u64, u64) = up(s20);
+    let (fd54, fd55, fd56, fd57, fd58, fd59): (u64, u64, u64, u64, u64, u64) = up(s21);
+    let (fd60, fd61, fd62, fd63, fd64, fd65): (u64, u64, u64, u64, u64, u64) = up(s22);
+    let (fd66, fd67, fd68, fd69, fd70, fd71): (u64, u64, u64, u64, u64, u64) = up(s23);
+    (fn0, fn1, fn2, fn3, fn4, fn5, fn6, fn7, fn8, fn9, fn10, fn11, fn12, fn13, fn14, fn15, fn16, fn17, fn18, fn19, fn20, fn21, fn22, fn23, fn24, fn25, fn26, fn27, fn28, fn29, fn30, fn31, fn32, fn33, fn34, fn35, fn36, fn37, fn38, fn39, fn40, fn41, fn42, fn43, fn44, fn45, fn46, fn47, fn48, fn49, fn50, fn51, fn52, fn53, fn54, fn55, fn56, fn57, fn58, fn59, fn60, fn61, fn62, fn63, fn64, fn65, fn66, fn67, fn68, fn69, fn70, fn71,
+     fd0, fd1, fd2, fd3, fd4, fd5, fd6, fd7, fd8, fd9, fd10, fd11, fd12, fd13, fd14, fd15, fd16, fd17, fd18, fd19, fd20, fd21, fd22, fd23, fd24, fd25, fd26, fd27, fd28, fd29, fd30, fd31, fd32, fd33, fd34, fd35, fd36, fd37, fd38, fd39, fd40, fd41, fd42, fd43, fd44, fd45, fd46, fd47, fd48, fd49, fd50, fd51, fd52, fd53, fd54, fd55, fd56, fd57, fd58, fd59, fd60, fd61, fd62, fd63, fd64, fd65, fd66, fd67, fd68, fd69, fd70, fd71)
+}
+
 fn main() {
     // Simple test: Fp12 one * one = one
     let z: u64 = 0;
@@ -616,4 +950,20 @@ fn main() {
         0x2b727ca0a28b128a, 0x3fb018c236386c06,
         0xbda00d5d432e67a4, 0xf31997844bd332dd,
         0xc55d3f327c817fcc, 0x13c365df1760bb5f));
+
+    // ===== Full Miller loop test =====
+    let (ml_fn0, ml_fn1, ml_fn2, ml_fn3, ml_fn4, ml_fn5, ml_fn6, ml_fn7, ml_fn8, ml_fn9, ml_fn10, ml_fn11, ml_fn12, ml_fn13, ml_fn14, ml_fn15, ml_fn16, ml_fn17, ml_fn18, ml_fn19, ml_fn20, ml_fn21, ml_fn22, ml_fn23, ml_fn24, ml_fn25, ml_fn26, ml_fn27, ml_fn28, ml_fn29, ml_fn30, ml_fn31, ml_fn32, ml_fn33, ml_fn34, ml_fn35, ml_fn36, ml_fn37, ml_fn38, ml_fn39, ml_fn40, ml_fn41, ml_fn42, ml_fn43, ml_fn44, ml_fn45, ml_fn46, ml_fn47, ml_fn48, ml_fn49, ml_fn50, ml_fn51, ml_fn52, ml_fn53, ml_fn54, ml_fn55, ml_fn56, ml_fn57, ml_fn58, ml_fn59, ml_fn60, ml_fn61, ml_fn62, ml_fn63, ml_fn64, ml_fn65, ml_fn66, ml_fn67, ml_fn68, ml_fn69, ml_fn70, ml_fn71,
+         ml_fd0, ml_fd1, ml_fd2, ml_fd3, ml_fd4, ml_fd5, ml_fd6, ml_fd7, ml_fd8, ml_fd9, ml_fd10, ml_fd11, ml_fd12, ml_fd13, ml_fd14, ml_fd15, ml_fd16, ml_fd17, ml_fd18, ml_fd19, ml_fd20, ml_fd21, ml_fd22, ml_fd23, ml_fd24, ml_fd25, ml_fd26, ml_fd27, ml_fd28, ml_fd29, ml_fd30, ml_fd31, ml_fd32, ml_fd33, ml_fd34, ml_fd35, ml_fd36, ml_fd37, ml_fd38, ml_fd39, ml_fd40, ml_fd41, ml_fd42, ml_fd43, ml_fd44, ml_fd45, ml_fd46, ml_fd47, ml_fd48, ml_fd49, ml_fd50, ml_fd51, ml_fd52, ml_fd53, ml_fd54, ml_fd55, ml_fd56, ml_fd57, ml_fd58, ml_fd59, ml_fd60, ml_fd61, ml_fd62, ml_fd63, ml_fd64, ml_fd65, ml_fd66, ml_fd67, ml_fd68, ml_fd69, ml_fd70, ml_fd71):
+        (u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64,
+         u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64) =
+        miller_loop(
+            px0, px1, px2, px3, px4, px5,
+            py0, py1, py2, py3, py4, py5,
+            gx0, gx1, gx2, gx3, gx4, gx5, gx6, gx7, gx8, gx9, gx10, gx11,
+            gy0, gy1, gy2, gy3, gy4, gy5, gy6, gy7, gy8, gy9, gy10, gy11);
+    // Verify f_num c0.c0.re (first 6 u64 of Fp12) from py_ecc reference
+    assert!(fp_eq(ml_fn0, ml_fn1, ml_fn2, ml_fn3, ml_fn4, ml_fn5,
+        0x7a6bb05d9b424092, 0x8ba4c67545dbc810,
+        0x9a9d695077f3f85b, 0x50bc12d4d7d70fb1,
+        0xb1632606987bb86d, 0x01b45efada44e585));
 }
