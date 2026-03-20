@@ -116,73 +116,131 @@ fn fp12_sub(a0: u64, a1: u64, a2: u64, a3: u64, a4: u64, a5: u64, a6: u64, a7: u
     (r0, r1, r2, r3, r4, r5, r6, r7, r8, r9, r10, r11, r12, r13, r14, r15, r16, r17, r18, r19, r20, r21, r22, r23, r24, r25, r26, r27, r28, r29, r30, r31, r32, r33, r34, r35, r36, r37, r38, r39, r40, r41, r42, r43, r44, r45, r46, r47, r48, r49, r50, r51, r52, r53, r54, r55, r56, r57, r58, r59, r60, r61, r62, r63, r64, r65, r66, r67, r68, r69, r70, r71)
 }
 
-// ============================================================
-// Test: verify file compiles with all primitives
-// ============================================================
+// Fp12 add
+fn fp12_add(a0: u64, a1: u64, a2: u64, a3: u64, a4: u64, a5: u64, a6: u64, a7: u64, a8: u64, a9: u64, a10: u64, a11: u64, a12: u64, a13: u64, a14: u64, a15: u64, a16: u64, a17: u64, a18: u64, a19: u64, a20: u64, a21: u64, a22: u64, a23: u64, a24: u64, a25: u64, a26: u64, a27: u64, a28: u64, a29: u64, a30: u64, a31: u64, a32: u64, a33: u64, a34: u64, a35: u64, a36: u64, a37: u64, a38: u64, a39: u64, a40: u64, a41: u64, a42: u64, a43: u64, a44: u64, a45: u64, a46: u64, a47: u64, a48: u64, a49: u64, a50: u64, a51: u64, a52: u64, a53: u64, a54: u64, a55: u64, a56: u64, a57: u64, a58: u64, a59: u64, a60: u64, a61: u64, a62: u64, a63: u64, a64: u64, a65: u64, a66: u64, a67: u64, a68: u64, a69: u64, a70: u64, a71: u64, b0: u64, b1: u64, b2: u64, b3: u64, b4: u64, b5: u64, b6: u64, b7: u64, b8: u64, b9: u64, b10: u64, b11: u64, b12: u64, b13: u64, b14: u64, b15: u64, b16: u64, b17: u64, b18: u64, b19: u64, b20: u64, b21: u64, b22: u64, b23: u64, b24: u64, b25: u64, b26: u64, b27: u64, b28: u64, b29: u64, b30: u64, b31: u64, b32: u64, b33: u64, b34: u64, b35: u64, b36: u64, b37: u64, b38: u64, b39: u64, b40: u64, b41: u64, b42: u64, b43: u64, b44: u64, b45: u64, b46: u64, b47: u64, b48: u64, b49: u64, b50: u64, b51: u64, b52: u64, b53: u64, b54: u64, b55: u64, b56: u64, b57: u64, b58: u64, b59: u64, b60: u64, b61: u64, b62: u64, b63: u64, b64: u64, b65: u64, b66: u64, b67: u64, b68: u64, b69: u64, b70: u64, b71: u64) -> (u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64) {
+    let (r0, r1, r2, r3, r4, r5, r6, r7, r8, r9, r10, r11, r12, r13, r14, r15, r16, r17, r18, r19, r20, r21, r22, r23, r24, r25, r26, r27, r28, r29, r30, r31, r32, r33, r34, r35): (u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64) = fp6_add(a0, a1, a2, a3, a4, a5, a6, a7, a8, a9, a10, a11, a12, a13, a14, a15, a16, a17, a18, a19, a20, a21, a22, a23, a24, a25, a26, a27, a28, a29, a30, a31, a32, a33, a34, a35, b0, b1, b2, b3, b4, b5, b6, b7, b8, b9, b10, b11, b12, b13, b14, b15, b16, b17, b18, b19, b20, b21, b22, b23, b24, b25, b26, b27, b28, b29, b30, b31, b32, b33, b34, b35);
+    let (r36, r37, r38, r39, r40, r41, r42, r43, r44, r45, r46, r47, r48, r49, r50, r51, r52, r53, r54, r55, r56, r57, r58, r59, r60, r61, r62, r63, r64, r65, r66, r67, r68, r69, r70, r71): (u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64) = fp6_add(a36, a37, a38, a39, a40, a41, a42, a43, a44, a45, a46, a47, a48, a49, a50, a51, a52, a53, a54, a55, a56, a57, a58, a59, a60, a61, a62, a63, a64, a65, a66, a67, a68, a69, a70, a71, b36, b37, b38, b39, b40, b41, b42, b43, b44, b45, b46, b47, b48, b49, b50, b51, b52, b53, b54, b55, b56, b57, b58, b59, b60, b61, b62, b63, b64, b65, b66, b67, b68, b69, b70, b71);
+    (r0, r1, r2, r3, r4, r5, r6, r7, r8, r9, r10, r11, r12, r13, r14, r15, r16, r17, r18, r19, r20, r21, r22, r23, r24, r25, r26, r27, r28, r29, r30, r31, r32, r33, r34, r35, r36, r37, r38, r39, r40, r41, r42, r43, r44, r45, r46, r47, r48, r49, r50, r51, r52, r53, r54, r55, r56, r57, r58, r59, r60, r61, r62, r63, r64, r65, r66, r67, r68, r69, r70, r71)
+}
+
+// Twist embedding: map Fp2 x-coordinate to Fp12
+// twist(x) has monomial-4 coeff = x_re, monomial-10 coeff = (x_im - x_re)*inv2
+// Both live in tower slot c0.c2 (v^2): Fp2 (re, im) encodes (re-im)*x^4 + im*x^10
+// So: im = (x_im-x_re)*inv2, re = x_re + (x_im-x_re)*inv2
+// Output: 72-u64 Fp12 with only u64[24:36] nonzero
+fn make_twist_x(xr0: u64, xr1: u64, xr2: u64, xr3: u64, xr4: u64, xr5: u64, xi0: u64, xi1: u64, xi2: u64, xi3: u64, xi4: u64, xi5: u64) -> (u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64) {
+    let z: u64 = 0;
+    let inv2_0: u64 = 0x1804000000015554; let inv2_1: u64 = 0x855000053ab00001;
+    let inv2_2: u64 = 0x633cb57c253c276f; let inv2_3: u64 = 0x6e22d1ec31ebb502;
+    let inv2_4: u64 = 0xd3916126f2d14ca2; let inv2_5: u64 = 0x17fbb8571a006596;
+    let (d0, d1, d2, d3, d4, d5): (u64, u64, u64, u64, u64, u64) = fs(xi0, xi1, xi2, xi3, xi4, xi5, xr0, xr1, xr2, xr3, xr4, xr5);
+    let (im0, im1, im2, im3, im4, im5): (u64, u64, u64, u64, u64, u64) = fm(d0, d1, d2, d3, d4, d5, inv2_0, inv2_1, inv2_2, inv2_3, inv2_4, inv2_5);
+    let (re0, re1, re2, re3, re4, re5): (u64, u64, u64, u64, u64, u64) = fa(xr0, xr1, xr2, xr3, xr4, xr5, im0, im1, im2, im3, im4, im5);
+    (z,z,z,z,z,z, z,z,z,z,z,z, z,z,z,z,z,z,z,z,z,z,z,z, re0,re1,re2,re3,re4,re5,im0,im1,im2,im3,im4,im5, z,z,z,z,z,z,z,z,z,z,z,z, z,z,z,z,z,z,z,z,z,z,z,z, z,z,z,z,z,z,z,z,z,z,z,z)
+}
+
+// Twist embedding: map Fp2 y-coordinate to Fp12
+// twist(y) has monomial-3 coeff = y_re, monomial-9 coeff = (y_im - y_re)*inv2
+// Both live in tower slot c1.c1 (v*w): Fp2 (re, im) encodes (re-im)*x^3 + im*x^9
+// So: im = (y_im-y_re)*inv2, re = y_re + (y_im-y_re)*inv2
+// Output: 72-u64 Fp12 with only u64[48:60] nonzero
+fn make_twist_y(yr0: u64, yr1: u64, yr2: u64, yr3: u64, yr4: u64, yr5: u64, yi0: u64, yi1: u64, yi2: u64, yi3: u64, yi4: u64, yi5: u64) -> (u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64) {
+    let z: u64 = 0;
+    let inv2_0: u64 = 0x1804000000015554; let inv2_1: u64 = 0x855000053ab00001;
+    let inv2_2: u64 = 0x633cb57c253c276f; let inv2_3: u64 = 0x6e22d1ec31ebb502;
+    let inv2_4: u64 = 0xd3916126f2d14ca2; let inv2_5: u64 = 0x17fbb8571a006596;
+    let (d0, d1, d2, d3, d4, d5): (u64, u64, u64, u64, u64, u64) = fs(yi0, yi1, yi2, yi3, yi4, yi5, yr0, yr1, yr2, yr3, yr4, yr5);
+    let (im0, im1, im2, im3, im4, im5): (u64, u64, u64, u64, u64, u64) = fm(d0, d1, d2, d3, d4, d5, inv2_0, inv2_1, inv2_2, inv2_3, inv2_4, inv2_5);
+    let (re0, re1, re2, re3, re4, re5): (u64, u64, u64, u64, u64, u64) = fa(yr0, yr1, yr2, yr3, yr4, yr5, im0, im1, im2, im3, im4, im5);
+    (z,z,z,z,z,z, z,z,z,z,z,z, z,z,z,z,z,z,z,z,z,z,z,z, z,z,z,z,z,z,z,z,z,z,z,z, z,z,z,z,z,z,z,z,z,z,z,z, re0,re1,re2,re3,re4,re5,im0,im1,im2,im3,im4,im5, z,z,z,z,z,z,z,z,z,z,z,z)
+}
+
+// Cast Fp value to Fp12: places value at c0.c0.re (monomial 0)
+// Output: 72-u64 Fp12 with only u64[0:6] nonzero
+fn make_cast_fp(v0: u64, v1: u64, v2: u64, v3: u64, v4: u64, v5: u64) -> (u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64) {
+    let z: u64 = 0;
+    (v0,v1,v2,v3,v4,v5, z,z,z,z,z,z, z,z,z,z,z,z,z,z,z,z,z,z, z,z,z,z,z,z,z,z,z,z,z,z, z,z,z,z,z,z,z,z,z,z,z,z, z,z,z,z,z,z,z,z,z,z,z,z, z,z,z,z,z,z,z,z,z,z,z,z)
+}
 
 // ============================================================
 // Doubling-step line evaluation for Miller loop
-// Input: R's Fp2 Jacobian coords (Xr, Yr, Zr), P's Fp coords (xP, yP)
+// Uses correct BLS12-381 twist embedding into Fp12 tower.
+// Input: R's Fp2 affine coords (Xr, Yr), P's Fp coords (xP, yP)
 // Output: line numerator and denominator as Fp12 (144 u64 total)
-// This matches py_ecc's linefunc for the P1==P2 case.
+// line = 3*twist(x)^2 * (cast(xP) - twist(x)) - 2*twist(y) * (cast(yP) - twist(y))
 // ============================================================
 
 fn line_double(
-    // R coords: X_re, X_im, Y_re, Y_im, Z_re, Z_im (each 6 u64)
     xr0: u64, xr1: u64, xr2: u64, xr3: u64, xr4: u64, xr5: u64,
     xr6: u64, xr7: u64, xr8: u64, xr9: u64, xr10: u64, xr11: u64,
     yr0: u64, yr1: u64, yr2: u64, yr3: u64, yr4: u64, yr5: u64,
     yr6: u64, yr7: u64, yr8: u64, yr9: u64, yr10: u64, yr11: u64,
     zr0: u64, zr1: u64, zr2: u64, zr3: u64, zr4: u64, zr5: u64,
     zr6: u64, zr7: u64, zr8: u64, zr9: u64, zr10: u64, zr11: u64,
-    // P coords: xP, yP (each 6 u64 Montgomery)
     px0: u64, px1: u64, px2: u64, px3: u64, px4: u64, px5: u64,
     py0: u64, py1: u64, py2: u64, py3: u64, py4: u64, py5: u64
 ) -> (u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64,
       u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64) {
-    // Apply twist isomorphism: (a, b) -> (a-b, b)
-    let (tw_xr0, tw_xr1, tw_xr2, tw_xr3, tw_xr4, tw_xr5): (u64, u64, u64, u64, u64, u64) = fs(xr0, xr1, xr2, xr3, xr4, xr5, xr6, xr7, xr8, xr9, xr10, xr11);
-    let (tw_xi0, tw_xi1, tw_xi2, tw_xi3, tw_xi4, tw_xi5): (u64, u64, u64, u64, u64, u64) = (xr6, xr7, xr8, xr9, xr10, xr11);
-    let (tw_yr0, tw_yr1, tw_yr2, tw_yr3, tw_yr4, tw_yr5): (u64, u64, u64, u64, u64, u64) = fs(yr0, yr1, yr2, yr3, yr4, yr5, yr6, yr7, yr8, yr9, yr10, yr11);
-    let (tw_yi0, tw_yi1, tw_yi2, tw_yi3, tw_yi4, tw_yi5): (u64, u64, u64, u64, u64, u64) = (yr6, yr7, yr8, yr9, yr10, yr11);
-    let (tw_zr0, tw_zr1, tw_zr2, tw_zr3, tw_zr4, tw_zr5): (u64, u64, u64, u64, u64, u64) = fs(zr0, zr1, zr2, zr3, zr4, zr5, zr6, zr7, zr8, zr9, zr10, zr11);
-    let (tw_zi0, tw_zi1, tw_zi2, tw_zi3, tw_zi4, tw_zi5): (u64, u64, u64, u64, u64, u64) = (zr6, zr7, zr8, zr9, zr10, zr11);
     let z: u64 = 0;
-    // Montgomery one
     let one0: u64 = 0x760900000002fffd; let one1: u64 = 0xebf4000bc40c0002;
     let one2: u64 = 0x5f48985753c758ba; let one3: u64 = 0x77ce585370525745;
     let one4: u64 = 0x5c071a97a256ec6d; let one5: u64 = 0x15f65ec3fa80e493;
-    // Montgomery 3
     let (two0, two1, two2, two3, two4, two5): (u64, u64, u64, u64, u64, u64) = fa(one0, one1, one2, one3, one4, one5, one0, one1, one2, one3, one4, one5);
     let (three0, three1, three2, three3, three4, three5): (u64, u64, u64, u64, u64, u64) = fa(two0, two1, two2, two3, two4, two5, one0, one1, one2, one3, one4, one5);
-    // x1^2 (Fp12: sparse at c1) -> Fp12 sparse at c2 = tw_x^2
-    let (x1sq_r0, x1sq_r1, x1sq_r2, x1sq_r3, x1sq_r4, x1sq_r5, x1sq_i0, x1sq_i1, x1sq_i2, x1sq_i3, x1sq_i4, x1sq_i5): (u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64) = f2m(tw_xr0, tw_xr1, tw_xr2, tw_xr3, tw_xr4, tw_xr5, tw_xi0, tw_xi1, tw_xi2, tw_xi3, tw_xi4, tw_xi5, tw_xr0, tw_xr1, tw_xr2, tw_xr3, tw_xr4, tw_xr5, tw_xi0, tw_xi1, tw_xi2, tw_xi3, tw_xi4, tw_xi5);
-    // m_num c2 = 3 * x1sq (scale each Fp by 3)
-    let (mn_r0, mn_r1, mn_r2, mn_r3, mn_r4, mn_r5): (u64, u64, u64, u64, u64, u64) = fm(x1sq_r0, x1sq_r1, x1sq_r2, x1sq_r3, x1sq_r4, x1sq_r5, three0, three1, three2, three3, three4, three5);
-    let (mn_i0, mn_i1, mn_i2, mn_i3, mn_i4, mn_i5): (u64, u64, u64, u64, u64, u64) = fm(x1sq_i0, x1sq_i1, x1sq_i2, x1sq_i3, x1sq_i4, x1sq_i5, three0, three1, three2, three3, three4, three5);
-    // m_den c3 = 2 * tw_y (Fp2 add with itself)
-    let (md_r0, md_r1, md_r2, md_r3, md_r4, md_r5): (u64, u64, u64, u64, u64, u64) = fa(tw_yr0, tw_yr1, tw_yr2, tw_yr3, tw_yr4, tw_yr5, tw_yr0, tw_yr1, tw_yr2, tw_yr3, tw_yr4, tw_yr5);
-    let (md_i0, md_i1, md_i2, md_i3, md_i4, md_i5): (u64, u64, u64, u64, u64, u64) = fa(tw_yi0, tw_yi1, tw_yi2, tw_yi3, tw_yi4, tw_yi5, tw_yi0, tw_yi1, tw_yi2, tw_yi3, tw_yi4, tw_yi5);
-    // -tw_x (for diff1)
-    let (neg_xr0, neg_xr1, neg_xr2, neg_xr3, neg_xr4, neg_xr5): (u64, u64, u64, u64, u64, u64) = fs(z,z,z,z,z,z, tw_xr0, tw_xr1, tw_xr2, tw_xr3, tw_xr4, tw_xr5);
-    let (neg_xi0, neg_xi1, neg_xi2, neg_xi3, neg_xi4, neg_xi5): (u64, u64, u64, u64, u64, u64) = fs(z,z,z,z,z,z, tw_xi0, tw_xi1, tw_xi2, tw_xi3, tw_xi4, tw_xi5);
-    // -tw_y (for diff2)
-    let (neg_yr0, neg_yr1, neg_yr2, neg_yr3, neg_yr4, neg_yr5): (u64, u64, u64, u64, u64, u64) = fs(z,z,z,z,z,z, tw_yr0, tw_yr1, tw_yr2, tw_yr3, tw_yr4, tw_yr5);
-    let (neg_yi0, neg_yi1, neg_yi2, neg_yi3, neg_yi4, neg_yi5): (u64, u64, u64, u64, u64, u64) = fs(z,z,z,z,z,z, tw_yi0, tw_yi1, tw_yi2, tw_yi3, tw_yi4, tw_yi5);
-    // term1 = m_num * diff1 = (0,0,3tw_x^2,0,0,0) * (0,-tw_x,0,(xP,0),0,0)
+    // Build Fp12 twist elements
+    let (tx0, tx1, tx2, tx3, tx4, tx5, tx6, tx7, tx8, tx9, tx10, tx11, tx12, tx13, tx14, tx15, tx16, tx17, tx18, tx19, tx20, tx21, tx22, tx23, tx24, tx25, tx26, tx27, tx28, tx29, tx30, tx31, tx32, tx33, tx34, tx35, tx36, tx37, tx38, tx39, tx40, tx41, tx42, tx43, tx44, tx45, tx46, tx47, tx48, tx49, tx50, tx51, tx52, tx53, tx54, tx55, tx56, tx57, tx58, tx59, tx60, tx61, tx62, tx63, tx64, tx65, tx66, tx67, tx68, tx69, tx70, tx71):
+        (u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64) =
+        make_twist_x(xr0, xr1, xr2, xr3, xr4, xr5, xr6, xr7, xr8, xr9, xr10, xr11);
+    let (ty0, ty1, ty2, ty3, ty4, ty5, ty6, ty7, ty8, ty9, ty10, ty11, ty12, ty13, ty14, ty15, ty16, ty17, ty18, ty19, ty20, ty21, ty22, ty23, ty24, ty25, ty26, ty27, ty28, ty29, ty30, ty31, ty32, ty33, ty34, ty35, ty36, ty37, ty38, ty39, ty40, ty41, ty42, ty43, ty44, ty45, ty46, ty47, ty48, ty49, ty50, ty51, ty52, ty53, ty54, ty55, ty56, ty57, ty58, ty59, ty60, ty61, ty62, ty63, ty64, ty65, ty66, ty67, ty68, ty69, ty70, ty71):
+        (u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64) =
+        make_twist_y(yr0, yr1, yr2, yr3, yr4, yr5, yr6, yr7, yr8, yr9, yr10, yr11);
+    let (xt0, xt1, xt2, xt3, xt4, xt5, xt6, xt7, xt8, xt9, xt10, xt11, xt12, xt13, xt14, xt15, xt16, xt17, xt18, xt19, xt20, xt21, xt22, xt23, xt24, xt25, xt26, xt27, xt28, xt29, xt30, xt31, xt32, xt33, xt34, xt35, xt36, xt37, xt38, xt39, xt40, xt41, xt42, xt43, xt44, xt45, xt46, xt47, xt48, xt49, xt50, xt51, xt52, xt53, xt54, xt55, xt56, xt57, xt58, xt59, xt60, xt61, xt62, xt63, xt64, xt65, xt66, xt67, xt68, xt69, xt70, xt71):
+        (u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64) =
+        make_cast_fp(px0, px1, px2, px3, px4, px5);
+    let (yt0, yt1, yt2, yt3, yt4, yt5, yt6, yt7, yt8, yt9, yt10, yt11, yt12, yt13, yt14, yt15, yt16, yt17, yt18, yt19, yt20, yt21, yt22, yt23, yt24, yt25, yt26, yt27, yt28, yt29, yt30, yt31, yt32, yt33, yt34, yt35, yt36, yt37, yt38, yt39, yt40, yt41, yt42, yt43, yt44, yt45, yt46, yt47, yt48, yt49, yt50, yt51, yt52, yt53, yt54, yt55, yt56, yt57, yt58, yt59, yt60, yt61, yt62, yt63, yt64, yt65, yt66, yt67, yt68, yt69, yt70, yt71):
+        (u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64) =
+        make_cast_fp(py0, py1, py2, py3, py4, py5);
+    // tx_sq = twist(x)^2
+    let (tsq0, tsq1, tsq2, tsq3, tsq4, tsq5, tsq6, tsq7, tsq8, tsq9, tsq10, tsq11, tsq12, tsq13, tsq14, tsq15, tsq16, tsq17, tsq18, tsq19, tsq20, tsq21, tsq22, tsq23, tsq24, tsq25, tsq26, tsq27, tsq28, tsq29, tsq30, tsq31, tsq32, tsq33, tsq34, tsq35, tsq36, tsq37, tsq38, tsq39, tsq40, tsq41, tsq42, tsq43, tsq44, tsq45, tsq46, tsq47, tsq48, tsq49, tsq50, tsq51, tsq52, tsq53, tsq54, tsq55, tsq56, tsq57, tsq58, tsq59, tsq60, tsq61, tsq62, tsq63, tsq64, tsq65, tsq66, tsq67, tsq68, tsq69, tsq70, tsq71):
+        (u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64) =
+        fp12_mul(tx0, tx1, tx2, tx3, tx4, tx5, tx6, tx7, tx8, tx9, tx10, tx11, tx12, tx13, tx14, tx15, tx16, tx17, tx18, tx19, tx20, tx21, tx22, tx23, tx24, tx25, tx26, tx27, tx28, tx29, tx30, tx31, tx32, tx33, tx34, tx35, tx36, tx37, tx38, tx39, tx40, tx41, tx42, tx43, tx44, tx45, tx46, tx47, tx48, tx49, tx50, tx51, tx52, tx53, tx54, tx55, tx56, tx57, tx58, tx59, tx60, tx61, tx62, tx63, tx64, tx65, tx66, tx67, tx68, tx69, tx70, tx71,
+                 tx0, tx1, tx2, tx3, tx4, tx5, tx6, tx7, tx8, tx9, tx10, tx11, tx12, tx13, tx14, tx15, tx16, tx17, tx18, tx19, tx20, tx21, tx22, tx23, tx24, tx25, tx26, tx27, tx28, tx29, tx30, tx31, tx32, tx33, tx34, tx35, tx36, tx37, tx38, tx39, tx40, tx41, tx42, tx43, tx44, tx45, tx46, tx47, tx48, tx49, tx50, tx51, tx52, tx53, tx54, tx55, tx56, tx57, tx58, tx59, tx60, tx61, tx62, tx63, tx64, tx65, tx66, tx67, tx68, tx69, tx70, tx71);
+    // m_num = 3 * tx_sq (multiply by cast(3))
+    let (thr0, thr1, thr2, thr3, thr4, thr5, thr6, thr7, thr8, thr9, thr10, thr11, thr12, thr13, thr14, thr15, thr16, thr17, thr18, thr19, thr20, thr21, thr22, thr23, thr24, thr25, thr26, thr27, thr28, thr29, thr30, thr31, thr32, thr33, thr34, thr35, thr36, thr37, thr38, thr39, thr40, thr41, thr42, thr43, thr44, thr45, thr46, thr47, thr48, thr49, thr50, thr51, thr52, thr53, thr54, thr55, thr56, thr57, thr58, thr59, thr60, thr61, thr62, thr63, thr64, thr65, thr66, thr67, thr68, thr69, thr70, thr71):
+        (u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64) =
+        make_cast_fp(three0, three1, three2, three3, three4, three5);
+    let (mn0, mn1, mn2, mn3, mn4, mn5, mn6, mn7, mn8, mn9, mn10, mn11, mn12, mn13, mn14, mn15, mn16, mn17, mn18, mn19, mn20, mn21, mn22, mn23, mn24, mn25, mn26, mn27, mn28, mn29, mn30, mn31, mn32, mn33, mn34, mn35, mn36, mn37, mn38, mn39, mn40, mn41, mn42, mn43, mn44, mn45, mn46, mn47, mn48, mn49, mn50, mn51, mn52, mn53, mn54, mn55, mn56, mn57, mn58, mn59, mn60, mn61, mn62, mn63, mn64, mn65, mn66, mn67, mn68, mn69, mn70, mn71):
+        (u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64) =
+        fp12_mul(tsq0, tsq1, tsq2, tsq3, tsq4, tsq5, tsq6, tsq7, tsq8, tsq9, tsq10, tsq11, tsq12, tsq13, tsq14, tsq15, tsq16, tsq17, tsq18, tsq19, tsq20, tsq21, tsq22, tsq23, tsq24, tsq25, tsq26, tsq27, tsq28, tsq29, tsq30, tsq31, tsq32, tsq33, tsq34, tsq35, tsq36, tsq37, tsq38, tsq39, tsq40, tsq41, tsq42, tsq43, tsq44, tsq45, tsq46, tsq47, tsq48, tsq49, tsq50, tsq51, tsq52, tsq53, tsq54, tsq55, tsq56, tsq57, tsq58, tsq59, tsq60, tsq61, tsq62, tsq63, tsq64, tsq65, tsq66, tsq67, tsq68, tsq69, tsq70, tsq71,
+                 thr0, thr1, thr2, thr3, thr4, thr5, thr6, thr7, thr8, thr9, thr10, thr11, thr12, thr13, thr14, thr15, thr16, thr17, thr18, thr19, thr20, thr21, thr22, thr23, thr24, thr25, thr26, thr27, thr28, thr29, thr30, thr31, thr32, thr33, thr34, thr35, thr36, thr37, thr38, thr39, thr40, thr41, thr42, thr43, thr44, thr45, thr46, thr47, thr48, thr49, thr50, thr51, thr52, thr53, thr54, thr55, thr56, thr57, thr58, thr59, thr60, thr61, thr62, thr63, thr64, thr65, thr66, thr67, thr68, thr69, thr70, thr71);
+    // m_den = 2 * twist(y) (multiply by cast(2))
+    let (tw0, tw1, tw2, tw3, tw4, tw5, tw6, tw7, tw8, tw9, tw10, tw11, tw12, tw13, tw14, tw15, tw16, tw17, tw18, tw19, tw20, tw21, tw22, tw23, tw24, tw25, tw26, tw27, tw28, tw29, tw30, tw31, tw32, tw33, tw34, tw35, tw36, tw37, tw38, tw39, tw40, tw41, tw42, tw43, tw44, tw45, tw46, tw47, tw48, tw49, tw50, tw51, tw52, tw53, tw54, tw55, tw56, tw57, tw58, tw59, tw60, tw61, tw62, tw63, tw64, tw65, tw66, tw67, tw68, tw69, tw70, tw71):
+        (u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64) =
+        make_cast_fp(two0, two1, two2, two3, two4, two5);
+    let (md0, md1, md2, md3, md4, md5, md6, md7, md8, md9, md10, md11, md12, md13, md14, md15, md16, md17, md18, md19, md20, md21, md22, md23, md24, md25, md26, md27, md28, md29, md30, md31, md32, md33, md34, md35, md36, md37, md38, md39, md40, md41, md42, md43, md44, md45, md46, md47, md48, md49, md50, md51, md52, md53, md54, md55, md56, md57, md58, md59, md60, md61, md62, md63, md64, md65, md66, md67, md68, md69, md70, md71):
+        (u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64) =
+        fp12_mul(ty0, ty1, ty2, ty3, ty4, ty5, ty6, ty7, ty8, ty9, ty10, ty11, ty12, ty13, ty14, ty15, ty16, ty17, ty18, ty19, ty20, ty21, ty22, ty23, ty24, ty25, ty26, ty27, ty28, ty29, ty30, ty31, ty32, ty33, ty34, ty35, ty36, ty37, ty38, ty39, ty40, ty41, ty42, ty43, ty44, ty45, ty46, ty47, ty48, ty49, ty50, ty51, ty52, ty53, ty54, ty55, ty56, ty57, ty58, ty59, ty60, ty61, ty62, ty63, ty64, ty65, ty66, ty67, ty68, ty69, ty70, ty71,
+                 tw0, tw1, tw2, tw3, tw4, tw5, tw6, tw7, tw8, tw9, tw10, tw11, tw12, tw13, tw14, tw15, tw16, tw17, tw18, tw19, tw20, tw21, tw22, tw23, tw24, tw25, tw26, tw27, tw28, tw29, tw30, tw31, tw32, tw33, tw34, tw35, tw36, tw37, tw38, tw39, tw40, tw41, tw42, tw43, tw44, tw45, tw46, tw47, tw48, tw49, tw50, tw51, tw52, tw53, tw54, tw55, tw56, tw57, tw58, tw59, tw60, tw61, tw62, tw63, tw64, tw65, tw66, tw67, tw68, tw69, tw70, tw71);
+    // diff1 = cast(xP) - twist(x)
+    let (d1_0, d1_1, d1_2, d1_3, d1_4, d1_5, d1_6, d1_7, d1_8, d1_9, d1_10, d1_11, d1_12, d1_13, d1_14, d1_15, d1_16, d1_17, d1_18, d1_19, d1_20, d1_21, d1_22, d1_23, d1_24, d1_25, d1_26, d1_27, d1_28, d1_29, d1_30, d1_31, d1_32, d1_33, d1_34, d1_35, d1_36, d1_37, d1_38, d1_39, d1_40, d1_41, d1_42, d1_43, d1_44, d1_45, d1_46, d1_47, d1_48, d1_49, d1_50, d1_51, d1_52, d1_53, d1_54, d1_55, d1_56, d1_57, d1_58, d1_59, d1_60, d1_61, d1_62, d1_63, d1_64, d1_65, d1_66, d1_67, d1_68, d1_69, d1_70, d1_71):
+        (u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64) =
+        fp12_sub(xt0, xt1, xt2, xt3, xt4, xt5, xt6, xt7, xt8, xt9, xt10, xt11, xt12, xt13, xt14, xt15, xt16, xt17, xt18, xt19, xt20, xt21, xt22, xt23, xt24, xt25, xt26, xt27, xt28, xt29, xt30, xt31, xt32, xt33, xt34, xt35, xt36, xt37, xt38, xt39, xt40, xt41, xt42, xt43, xt44, xt45, xt46, xt47, xt48, xt49, xt50, xt51, xt52, xt53, xt54, xt55, xt56, xt57, xt58, xt59, xt60, xt61, xt62, xt63, xt64, xt65, xt66, xt67, xt68, xt69, xt70, xt71,
+                 tx0, tx1, tx2, tx3, tx4, tx5, tx6, tx7, tx8, tx9, tx10, tx11, tx12, tx13, tx14, tx15, tx16, tx17, tx18, tx19, tx20, tx21, tx22, tx23, tx24, tx25, tx26, tx27, tx28, tx29, tx30, tx31, tx32, tx33, tx34, tx35, tx36, tx37, tx38, tx39, tx40, tx41, tx42, tx43, tx44, tx45, tx46, tx47, tx48, tx49, tx50, tx51, tx52, tx53, tx54, tx55, tx56, tx57, tx58, tx59, tx60, tx61, tx62, tx63, tx64, tx65, tx66, tx67, tx68, tx69, tx70, tx71);
+    // diff2 = cast(yP) - twist(y)
+    let (d2_0, d2_1, d2_2, d2_3, d2_4, d2_5, d2_6, d2_7, d2_8, d2_9, d2_10, d2_11, d2_12, d2_13, d2_14, d2_15, d2_16, d2_17, d2_18, d2_19, d2_20, d2_21, d2_22, d2_23, d2_24, d2_25, d2_26, d2_27, d2_28, d2_29, d2_30, d2_31, d2_32, d2_33, d2_34, d2_35, d2_36, d2_37, d2_38, d2_39, d2_40, d2_41, d2_42, d2_43, d2_44, d2_45, d2_46, d2_47, d2_48, d2_49, d2_50, d2_51, d2_52, d2_53, d2_54, d2_55, d2_56, d2_57, d2_58, d2_59, d2_60, d2_61, d2_62, d2_63, d2_64, d2_65, d2_66, d2_67, d2_68, d2_69, d2_70, d2_71):
+        (u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64) =
+        fp12_sub(yt0, yt1, yt2, yt3, yt4, yt5, yt6, yt7, yt8, yt9, yt10, yt11, yt12, yt13, yt14, yt15, yt16, yt17, yt18, yt19, yt20, yt21, yt22, yt23, yt24, yt25, yt26, yt27, yt28, yt29, yt30, yt31, yt32, yt33, yt34, yt35, yt36, yt37, yt38, yt39, yt40, yt41, yt42, yt43, yt44, yt45, yt46, yt47, yt48, yt49, yt50, yt51, yt52, yt53, yt54, yt55, yt56, yt57, yt58, yt59, yt60, yt61, yt62, yt63, yt64, yt65, yt66, yt67, yt68, yt69, yt70, yt71,
+                 ty0, ty1, ty2, ty3, ty4, ty5, ty6, ty7, ty8, ty9, ty10, ty11, ty12, ty13, ty14, ty15, ty16, ty17, ty18, ty19, ty20, ty21, ty22, ty23, ty24, ty25, ty26, ty27, ty28, ty29, ty30, ty31, ty32, ty33, ty34, ty35, ty36, ty37, ty38, ty39, ty40, ty41, ty42, ty43, ty44, ty45, ty46, ty47, ty48, ty49, ty50, ty51, ty52, ty53, ty54, ty55, ty56, ty57, ty58, ty59, ty60, ty61, ty62, ty63, ty64, ty65, ty66, ty67, ty68, ty69, ty70, ty71);
+    // term1 = m_num * diff1
     let (t1_0, t1_1, t1_2, t1_3, t1_4, t1_5, t1_6, t1_7, t1_8, t1_9, t1_10, t1_11, t1_12, t1_13, t1_14, t1_15, t1_16, t1_17, t1_18, t1_19, t1_20, t1_21, t1_22, t1_23, t1_24, t1_25, t1_26, t1_27, t1_28, t1_29, t1_30, t1_31, t1_32, t1_33, t1_34, t1_35, t1_36, t1_37, t1_38, t1_39, t1_40, t1_41, t1_42, t1_43, t1_44, t1_45, t1_46, t1_47, t1_48, t1_49, t1_50, t1_51, t1_52, t1_53, t1_54, t1_55, t1_56, t1_57, t1_58, t1_59, t1_60, t1_61, t1_62, t1_63, t1_64, t1_65, t1_66, t1_67, t1_68, t1_69, t1_70, t1_71):
         (u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64) =
-        fp12_mul(
-            z,z,z,z,z,z, z,z,z,z,z,z, z,z,z,z,z,z,z,z,z,z,z,z, mn_r0,mn_r1,mn_r2,mn_r3,mn_r4,mn_r5,mn_i0,mn_i1,mn_i2,mn_i3,mn_i4,mn_i5, z,z,z,z,z,z,z,z,z,z,z,z, z,z,z,z,z,z,z,z,z,z,z,z, z,z,z,z,z,z,z,z,z,z,z,z,
-            z,z,z,z,z,z, z,z,z,z,z,z, neg_xr0,neg_xr1,neg_xr2,neg_xr3,neg_xr4,neg_xr5,neg_xi0,neg_xi1,neg_xi2,neg_xi3,neg_xi4,neg_xi5, z,z,z,z,z,z,z,z,z,z,z,z, px0,px1,px2,px3,px4,px5,z,z,z,z,z,z, z,z,z,z,z,z,z,z,z,z,z,z, z,z,z,z,z,z,z,z,z,z,z,z
-        );
-    // term2 = m_den * diff2 = (0,0,0,2tw_y,0,0) * (-tw_y,0,0,(yP,0),0,0)
+        fp12_mul(mn0, mn1, mn2, mn3, mn4, mn5, mn6, mn7, mn8, mn9, mn10, mn11, mn12, mn13, mn14, mn15, mn16, mn17, mn18, mn19, mn20, mn21, mn22, mn23, mn24, mn25, mn26, mn27, mn28, mn29, mn30, mn31, mn32, mn33, mn34, mn35, mn36, mn37, mn38, mn39, mn40, mn41, mn42, mn43, mn44, mn45, mn46, mn47, mn48, mn49, mn50, mn51, mn52, mn53, mn54, mn55, mn56, mn57, mn58, mn59, mn60, mn61, mn62, mn63, mn64, mn65, mn66, mn67, mn68, mn69, mn70, mn71,
+                 d1_0, d1_1, d1_2, d1_3, d1_4, d1_5, d1_6, d1_7, d1_8, d1_9, d1_10, d1_11, d1_12, d1_13, d1_14, d1_15, d1_16, d1_17, d1_18, d1_19, d1_20, d1_21, d1_22, d1_23, d1_24, d1_25, d1_26, d1_27, d1_28, d1_29, d1_30, d1_31, d1_32, d1_33, d1_34, d1_35, d1_36, d1_37, d1_38, d1_39, d1_40, d1_41, d1_42, d1_43, d1_44, d1_45, d1_46, d1_47, d1_48, d1_49, d1_50, d1_51, d1_52, d1_53, d1_54, d1_55, d1_56, d1_57, d1_58, d1_59, d1_60, d1_61, d1_62, d1_63, d1_64, d1_65, d1_66, d1_67, d1_68, d1_69, d1_70, d1_71);
+    // term2 = m_den * diff2
     let (t2_0, t2_1, t2_2, t2_3, t2_4, t2_5, t2_6, t2_7, t2_8, t2_9, t2_10, t2_11, t2_12, t2_13, t2_14, t2_15, t2_16, t2_17, t2_18, t2_19, t2_20, t2_21, t2_22, t2_23, t2_24, t2_25, t2_26, t2_27, t2_28, t2_29, t2_30, t2_31, t2_32, t2_33, t2_34, t2_35, t2_36, t2_37, t2_38, t2_39, t2_40, t2_41, t2_42, t2_43, t2_44, t2_45, t2_46, t2_47, t2_48, t2_49, t2_50, t2_51, t2_52, t2_53, t2_54, t2_55, t2_56, t2_57, t2_58, t2_59, t2_60, t2_61, t2_62, t2_63, t2_64, t2_65, t2_66, t2_67, t2_68, t2_69, t2_70, t2_71):
         (u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64) =
-        fp12_mul(
-            z,z,z,z,z,z, z,z,z,z,z,z, z,z,z,z,z,z,z,z,z,z,z,z, z,z,z,z,z,z,z,z,z,z,z,z, md_r0,md_r1,md_r2,md_r3,md_r4,md_r5,md_i0,md_i1,md_i2,md_i3,md_i4,md_i5, z,z,z,z,z,z,z,z,z,z,z,z, z,z,z,z,z,z,z,z,z,z,z,z,
-            neg_yr0,neg_yr1,neg_yr2,neg_yr3,neg_yr4,neg_yr5,neg_yi0,neg_yi1,neg_yi2,neg_yi3,neg_yi4,neg_yi5, z,z,z,z,z,z,z,z,z,z,z,z, z,z,z,z,z,z,z,z,z,z,z,z, py0,py1,py2,py3,py4,py5,z,z,z,z,z,z, z,z,z,z,z,z,z,z,z,z,z,z, z,z,z,z,z,z,z,z,z,z,z,z
-        );
+        fp12_mul(md0, md1, md2, md3, md4, md5, md6, md7, md8, md9, md10, md11, md12, md13, md14, md15, md16, md17, md18, md19, md20, md21, md22, md23, md24, md25, md26, md27, md28, md29, md30, md31, md32, md33, md34, md35, md36, md37, md38, md39, md40, md41, md42, md43, md44, md45, md46, md47, md48, md49, md50, md51, md52, md53, md54, md55, md56, md57, md58, md59, md60, md61, md62, md63, md64, md65, md66, md67, md68, md69, md70, md71,
+                 d2_0, d2_1, d2_2, d2_3, d2_4, d2_5, d2_6, d2_7, d2_8, d2_9, d2_10, d2_11, d2_12, d2_13, d2_14, d2_15, d2_16, d2_17, d2_18, d2_19, d2_20, d2_21, d2_22, d2_23, d2_24, d2_25, d2_26, d2_27, d2_28, d2_29, d2_30, d2_31, d2_32, d2_33, d2_34, d2_35, d2_36, d2_37, d2_38, d2_39, d2_40, d2_41, d2_42, d2_43, d2_44, d2_45, d2_46, d2_47, d2_48, d2_49, d2_50, d2_51, d2_52, d2_53, d2_54, d2_55, d2_56, d2_57, d2_58, d2_59, d2_60, d2_61, d2_62, d2_63, d2_64, d2_65, d2_66, d2_67, d2_68, d2_69, d2_70, d2_71);
     // line_n = term1 - term2
     let (n0, n1, n2, n3, n4, n5, n6, n7, n8, n9, n10, n11, n12, n13, n14, n15, n16, n17, n18, n19, n20, n21, n22, n23, n24, n25, n26, n27, n28, n29, n30, n31, n32, n33, n34, n35, n36, n37, n38, n39, n40, n41, n42, n43, n44, n45, n46, n47, n48, n49, n50, n51, n52, n53, n54, n55, n56, n57, n58, n59, n60, n61, n62, n63, n64, n65, n66, n67, n68, n69, n70, n71):
         (u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64) =
@@ -190,26 +248,9 @@ fn line_double(
             t1_0, t1_1, t1_2, t1_3, t1_4, t1_5, t1_6, t1_7, t1_8, t1_9, t1_10, t1_11, t1_12, t1_13, t1_14, t1_15, t1_16, t1_17, t1_18, t1_19, t1_20, t1_21, t1_22, t1_23, t1_24, t1_25, t1_26, t1_27, t1_28, t1_29, t1_30, t1_31, t1_32, t1_33, t1_34, t1_35, t1_36, t1_37, t1_38, t1_39, t1_40, t1_41, t1_42, t1_43, t1_44, t1_45, t1_46, t1_47, t1_48, t1_49, t1_50, t1_51, t1_52, t1_53, t1_54, t1_55, t1_56, t1_57, t1_58, t1_59, t1_60, t1_61, t1_62, t1_63, t1_64, t1_65, t1_66, t1_67, t1_68, t1_69, t1_70, t1_71,
             t2_0, t2_1, t2_2, t2_3, t2_4, t2_5, t2_6, t2_7, t2_8, t2_9, t2_10, t2_11, t2_12, t2_13, t2_14, t2_15, t2_16, t2_17, t2_18, t2_19, t2_20, t2_21, t2_22, t2_23, t2_24, t2_25, t2_26, t2_27, t2_28, t2_29, t2_30, t2_31, t2_32, t2_33, t2_34, t2_35, t2_36, t2_37, t2_38, t2_39, t2_40, t2_41, t2_42, t2_43, t2_44, t2_45, t2_46, t2_47, t2_48, t2_49, t2_50, t2_51, t2_52, t2_53, t2_54, t2_55, t2_56, t2_57, t2_58, t2_59, t2_60, t2_61, t2_62, t2_63, t2_64, t2_65, t2_66, t2_67, t2_68, t2_69, t2_70, t2_71
         );
-    // line_d = m_den * zt * z1 = (0,0,0,2tw_y,0,0) * (1,0,...) * (0,0,0,tw_z,0,0)
-    // For Z1 affine (Z=1): line_d = m_den * 1 * z1_fp12
-    // m_den is at c3, zt is scalar at c0, z1 is at c3
-    // m_den * zt = m_den (since zt=1)
-    // m_den * z1: (0,0,0,2tw_y,0,0) * (0,0,0,tw_z,0,0)
-    // But z1 = twist(Z), and for Z=(1,0) the twist gives (1,0) at c3
-    // So z1_fp12 has c3 = (tw_z_re, tw_z_im) = ((1-0), 0) = (1, 0) in Montgomery
-    // Actually for general Z: z1_fp12 has c3 = (tw_z_re, tw_z_im)
-    // line_d = m_den(c3) * zt(c0) * z1(c3)
-    // = sparse Fp12 products
-    // For simplicity, use full fp12_mul:
-    let (d0, d1, d2, d3, d4, d5, d6, d7, d8, d9, d10, d11, d12, d13, d14, d15, d16, d17, d18, d19, d20, d21, d22, d23, d24, d25, d26, d27, d28, d29, d30, d31, d32, d33, d34, d35, d36, d37, d38, d39, d40, d41, d42, d43, d44, d45, d46, d47, d48, d49, d50, d51, d52, d53, d54, d55, d56, d57, d58, d59, d60, d61, d62, d63, d64, d65, d66, d67, d68, d69, d70, d71):
-        (u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64) =
-        fp12_mul(
-            z,z,z,z,z,z, z,z,z,z,z,z, z,z,z,z,z,z,z,z,z,z,z,z, z,z,z,z,z,z,z,z,z,z,z,z, md_r0,md_r1,md_r2,md_r3,md_r4,md_r5,md_i0,md_i1,md_i2,md_i3,md_i4,md_i5, z,z,z,z,z,z,z,z,z,z,z,z, z,z,z,z,z,z,z,z,z,z,z,z,
-            one0,one1,one2,one3,one4,one5, z,z,z,z,z,z, z,z,z,z,z,z,z,z,z,z,z,z, z,z,z,z,z,z,z,z,z,z,z,z, tw_zr0,tw_zr1,tw_zr2,tw_zr3,tw_zr4,tw_zr5,tw_zi0,tw_zi1,tw_zi2,tw_zi3,tw_zi4,tw_zi5, z,z,z,z,z,z,z,z,z,z,z,z, z,z,z,z,z,z,z,z,z,z,z,z
-        );
-    // Return (line_n, line_d) as 144 u64
+    // line_d = m_den
     (n0, n1, n2, n3, n4, n5, n6, n7, n8, n9, n10, n11, n12, n13, n14, n15, n16, n17, n18, n19, n20, n21, n22, n23, n24, n25, n26, n27, n28, n29, n30, n31, n32, n33, n34, n35, n36, n37, n38, n39, n40, n41, n42, n43, n44, n45, n46, n47, n48, n49, n50, n51, n52, n53, n54, n55, n56, n57, n58, n59, n60, n61, n62, n63, n64, n65, n66, n67, n68, n69, n70, n71,
-     d0, d1, d2, d3, d4, d5, d6, d7, d8, d9, d10, d11, d12, d13, d14, d15, d16, d17, d18, d19, d20, d21, d22, d23, d24, d25, d26, d27, d28, d29, d30, d31, d32, d33, d34, d35, d36, d37, d38, d39, d40, d41, d42, d43, d44, d45, d46, d47, d48, d49, d50, d51, d52, d53, d54, d55, d56, d57, d58, d59, d60, d61, d62, d63, d64, d65, d66, d67, d68, d69, d70, d71)
+     md0, md1, md2, md3, md4, md5, md6, md7, md8, md9, md10, md11, md12, md13, md14, md15, md16, md17, md18, md19, md20, md21, md22, md23, md24, md25, md26, md27, md28, md29, md30, md31, md32, md33, md34, md35, md36, md37, md38, md39, md40, md41, md42, md43, md44, md45, md46, md47, md48, md49, md50, md51, md52, md53, md54, md55, md56, md57, md58, md59, md60, md61, md62, md63, md64, md65, md66, md67, md68, md69, md70, md71)
 }
 
 // Pack/unpack Fp (6 u64) <-> (u256, u128)
@@ -253,6 +294,186 @@ fn g2dbl(
     let (yz0, yz1, yz2, yz3, yz4, yz5, yz6, yz7, yz8, yz9, yz10, yz11): (u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64) = f2m(y0, y1, y2, y3, y4, y5, y6, y7, y8, y9, y10, y11, z0, z1, z2, z3, z4, z5, z6, z7, z8, z9, z10, z11);
     let (rz0, rz1, rz2, rz3, rz4, rz5, rz6, rz7, rz8, rz9, rz10, rz11): (u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64) = f2a(yz0, yz1, yz2, yz3, yz4, yz5, yz6, yz7, yz8, yz9, yz10, yz11, yz0, yz1, yz2, yz3, yz4, yz5, yz6, yz7, yz8, yz9, yz10, yz11);
     (rx0, rx1, rx2, rx3, rx4, rx5, rx6, rx7, rx8, rx9, rx10, rx11, ry0, ry1, ry2, ry3, ry4, ry5, ry6, ry7, ry8, ry9, ry10, ry11, rz0, rz1, rz2, rz3, rz4, rz5, rz6, rz7, rz8, rz9, rz10, rz11)
+}
+
+// 384-bit left shift by 1
+fn shl384(a0: u64, a1: u64, a2: u64, a3: u64, a4: u64, a5: u64) -> (u64, u64, u64, u64, u64, u64) {
+    let zero: u1 = 0;
+    let (c0, r0): (u1, u64) = jet::full_left_shift_64_1(a0, zero);
+    let (c1, r1): (u1, u64) = jet::full_left_shift_64_1(a1, c0);
+    let (c2, r2): (u1, u64) = jet::full_left_shift_64_1(a2, c1);
+    let (c3, r3): (u1, u64) = jet::full_left_shift_64_1(a3, c2);
+    let (c4, r4): (u1, u64) = jet::full_left_shift_64_1(a4, c3);
+    let (_, r5): (u1, u64) = jet::full_left_shift_64_1(a5, c4);
+    (r0, r1, r2, r3, r4, r5)
+}
+
+fn msb384(a5: u64) -> bool { jet::lt_64(0x7fffffffffffffff, a5) }
+
+fn exp_step(
+    state: ((u256, u128), (u256, u128)),
+    base: (u256, u128),
+    counter: u16
+) -> Either<(u256, u128), ((u256, u128), (u256, u128))> {
+    let (acc_packed, exp_packed): ((u256, u128), (u256, u128)) = state;
+    let (a0, a1, a2, a3, a4, a5): (u64, u64, u64, u64, u64, u64) = up(acc_packed);
+    let (e0, e1, e2, e3, e4, e5): (u64, u64, u64, u64, u64, u64) = up(exp_packed);
+    let (a0, a1, a2, a3, a4, a5): (u64, u64, u64, u64, u64, u64) = fm(a0, a1, a2, a3, a4, a5, a0, a1, a2, a3, a4, a5);
+    let (a0, a1, a2, a3, a4, a5): (u64, u64, u64, u64, u64, u64) = match msb384(e5) {
+        true => { let (b0, b1, b2, b3, b4, b5): (u64, u64, u64, u64, u64, u64) = up(base); fm(a0, a1, a2, a3, a4, a5, b0, b1, b2, b3, b4, b5) },
+        false => (a0, a1, a2, a3, a4, a5),
+    };
+    let (e0, e1, e2, e3, e4, e5): (u64, u64, u64, u64, u64, u64) = shl384(e0, e1, e2, e3, e4, e5);
+    match jet::eq_16(counter, 380) {
+        true => Left(pk(a0, a1, a2, a3, a4, a5)),
+        false => Right((pk(a0, a1, a2, a3, a4, a5), pk(e0, e1, e2, e3, e4, e5))),
+    }
+}
+
+fn fp_inv_mont(a0: u64, a1: u64, a2: u64, a3: u64, a4: u64, a5: u64) -> (u64, u64, u64, u64, u64, u64) {
+    let one_m: (u256, u128) = pk(0x760900000002fffd, 0xebf4000bc40c0002, 0x5f48985753c758ba, 0x77ce585370525745, 0x5c071a97a256ec6d, 0x15f65ec3fa80e493);
+    let exp: (u256, u128) = pk(0xcff7fffffffd5548, 0xf55ffff58a9ffffd, 0x39869507b587b120, 0x23ba5c279c2895fb, 0x58dd3db21a5d66bb, 0xd0088f51cbff34d2);
+    let base: (u256, u128) = pk(a0, a1, a2, a3, a4, a5);
+    let init: ((u256, u128), (u256, u128)) = (one_m, exp);
+    let result: Either<(u256, u128), ((u256, u128), (u256, u128))> = for_while::<exp_step>(init, base);
+    let r: (u256, u128) = unwrap_left::<((u256, u128), (u256, u128))>(result);
+    up(r)
+}
+
+fn fp2_inv(a0: u64, a1: u64, a2: u64, a3: u64, a4: u64, a5: u64, a6: u64, a7: u64, a8: u64, a9: u64, a10: u64, a11: u64) -> (u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64) {
+    let (asq0, asq1, asq2, asq3, asq4, asq5): (u64, u64, u64, u64, u64, u64) = fm(a0, a1, a2, a3, a4, a5, a0, a1, a2, a3, a4, a5);
+    let (bsq0, bsq1, bsq2, bsq3, bsq4, bsq5): (u64, u64, u64, u64, u64, u64) = fm(a6, a7, a8, a9, a10, a11, a6, a7, a8, a9, a10, a11);
+    let (n0, n1, n2, n3, n4, n5): (u64, u64, u64, u64, u64, u64) = fa(asq0, asq1, asq2, asq3, asq4, asq5, bsq0, bsq1, bsq2, bsq3, bsq4, bsq5);
+    let (ni0, ni1, ni2, ni3, ni4, ni5): (u64, u64, u64, u64, u64, u64) = fp_inv_mont(n0, n1, n2, n3, n4, n5);
+    let (r0, r1, r2, r3, r4, r5): (u64, u64, u64, u64, u64, u64) = fm(a0, a1, a2, a3, a4, a5, ni0, ni1, ni2, ni3, ni4, ni5);
+    let (nb0, nb1, nb2, nb3, nb4, nb5): (u64, u64, u64, u64, u64, u64) = fs(0, 0, 0, 0, 0, 0, a6, a7, a8, a9, a10, a11);
+    let (i0, i1, i2, i3, i4, i5): (u64, u64, u64, u64, u64, u64) = fm(nb0, nb1, nb2, nb3, nb4, nb5, ni0, ni1, ni2, ni3, ni4, ni5);
+    (r0, r1, r2, r3, r4, r5, i0, i1, i2, i3, i4, i5)
+}
+
+fn jac_to_affine(
+    x0: u64, x1: u64, x2: u64, x3: u64, x4: u64, x5: u64, x6: u64, x7: u64, x8: u64, x9: u64, x10: u64, x11: u64,
+    y0: u64, y1: u64, y2: u64, y3: u64, y4: u64, y5: u64, y6: u64, y7: u64, y8: u64, y9: u64, y10: u64, y11: u64,
+    z0: u64, z1: u64, z2: u64, z3: u64, z4: u64, z5: u64, z6: u64, z7: u64, z8: u64, z9: u64, z10: u64, z11: u64
+) -> (u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64,
+      u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64) {
+    let (zi0, zi1, zi2, zi3, zi4, zi5, zi6, zi7, zi8, zi9, zi10, zi11): (u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64) = fp2_inv(z0, z1, z2, z3, z4, z5, z6, z7, z8, z9, z10, z11);
+    let (zi2_0, zi2_1, zi2_2, zi2_3, zi2_4, zi2_5, zi2_6, zi2_7, zi2_8, zi2_9, zi2_10, zi2_11): (u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64) = f2m(zi0, zi1, zi2, zi3, zi4, zi5, zi6, zi7, zi8, zi9, zi10, zi11, zi0, zi1, zi2, zi3, zi4, zi5, zi6, zi7, zi8, zi9, zi10, zi11);
+    let (zi3_0, zi3_1, zi3_2, zi3_3, zi3_4, zi3_5, zi3_6, zi3_7, zi3_8, zi3_9, zi3_10, zi3_11): (u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64) = f2m(zi2_0, zi2_1, zi2_2, zi2_3, zi2_4, zi2_5, zi2_6, zi2_7, zi2_8, zi2_9, zi2_10, zi2_11, zi0, zi1, zi2, zi3, zi4, zi5, zi6, zi7, zi8, zi9, zi10, zi11);
+    let (xa0, xa1, xa2, xa3, xa4, xa5, xa6, xa7, xa8, xa9, xa10, xa11): (u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64) = f2m(x0, x1, x2, x3, x4, x5, x6, x7, x8, x9, x10, x11, zi2_0, zi2_1, zi2_2, zi2_3, zi2_4, zi2_5, zi2_6, zi2_7, zi2_8, zi2_9, zi2_10, zi2_11);
+    let (ya0, ya1, ya2, ya3, ya4, ya5, ya6, ya7, ya8, ya9, ya10, ya11): (u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64) = f2m(y0, y1, y2, y3, y4, y5, y6, y7, y8, y9, y10, y11, zi3_0, zi3_1, zi3_2, zi3_3, zi3_4, zi3_5, zi3_6, zi3_7, zi3_8, zi3_9, zi3_10, zi3_11);
+    (xa0, xa1, xa2, xa3, xa4, xa5, xa6, xa7, xa8, xa9, xa10, xa11, ya0, ya1, ya2, ya3, ya4, ya5, ya6, ya7, ya8, ya9, ya10, ya11)
+}
+
+fn line_add(
+    xr0: u64, xr1: u64, xr2: u64, xr3: u64, xr4: u64, xr5: u64,
+    xr6: u64, xr7: u64, xr8: u64, xr9: u64, xr10: u64, xr11: u64,
+    yr0: u64, yr1: u64, yr2: u64, yr3: u64, yr4: u64, yr5: u64,
+    yr6: u64, yr7: u64, yr8: u64, yr9: u64, yr10: u64, yr11: u64,
+    xq0: u64, xq1: u64, xq2: u64, xq3: u64, xq4: u64, xq5: u64,
+    xq6: u64, xq7: u64, xq8: u64, xq9: u64, xq10: u64, xq11: u64,
+    yq0: u64, yq1: u64, yq2: u64, yq3: u64, yq4: u64, yq5: u64,
+    yq6: u64, yq7: u64, yq8: u64, yq9: u64, yq10: u64, yq11: u64,
+    px0: u64, px1: u64, px2: u64, px3: u64, px4: u64, px5: u64,
+    py0: u64, py1: u64, py2: u64, py3: u64, py4: u64, py5: u64
+) -> (u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64,
+      u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64) {
+    // Apply folded twist to both R and Q: (a, b) -> (a-b, b)
+    let (tw_xr0, tw_xr1, tw_xr2, tw_xr3, tw_xr4, tw_xr5): (u64, u64, u64, u64, u64, u64) = fs(xr0, xr1, xr2, xr3, xr4, xr5, xr6, xr7, xr8, xr9, xr10, xr11);
+    let (tw_xri0, tw_xri1, tw_xri2, tw_xri3, tw_xri4, tw_xri5): (u64, u64, u64, u64, u64, u64) = (xr6, xr7, xr8, xr9, xr10, xr11);
+    let (tw_yr0, tw_yr1, tw_yr2, tw_yr3, tw_yr4, tw_yr5): (u64, u64, u64, u64, u64, u64) = fs(yr0, yr1, yr2, yr3, yr4, yr5, yr6, yr7, yr8, yr9, yr10, yr11);
+    let (tw_yri0, tw_yri1, tw_yri2, tw_yri3, tw_yri4, tw_yri5): (u64, u64, u64, u64, u64, u64) = (yr6, yr7, yr8, yr9, yr10, yr11);
+    let (tw_xq0, tw_xq1, tw_xq2, tw_xq3, tw_xq4, tw_xq5): (u64, u64, u64, u64, u64, u64) = fs(xq0, xq1, xq2, xq3, xq4, xq5, xq6, xq7, xq8, xq9, xq10, xq11);
+    let (tw_xqi0, tw_xqi1, tw_xqi2, tw_xqi3, tw_xqi4, tw_xqi5): (u64, u64, u64, u64, u64, u64) = (xq6, xq7, xq8, xq9, xq10, xq11);
+    let (tw_yq0, tw_yq1, tw_yq2, tw_yq3, tw_yq4, tw_yq5): (u64, u64, u64, u64, u64, u64) = fs(yq0, yq1, yq2, yq3, yq4, yq5, yq6, yq7, yq8, yq9, yq10, yq11);
+    let (tw_yqi0, tw_yqi1, tw_yqi2, tw_yqi3, tw_yqi4, tw_yqi5): (u64, u64, u64, u64, u64, u64) = (yq6, yq7, yq8, yq9, yq10, yq11);
+    let z: u64 = 0;
+    let one0: u64 = 0x760900000002fffd; let one1: u64 = 0xebf4000bc40c0002;
+    let one2: u64 = 0x5f48985753c758ba; let one3: u64 = 0x77ce585370525745;
+    let one4: u64 = 0x5c071a97a256ec6d; let one5: u64 = 0x15f65ec3fa80e493;
+    // m_num = tw_yq - tw_yr (Fp2 sub)
+    let (mn_r0, mn_r1, mn_r2, mn_r3, mn_r4, mn_r5): (u64, u64, u64, u64, u64, u64) = fs(tw_yq0, tw_yq1, tw_yq2, tw_yq3, tw_yq4, tw_yq5, tw_yr0, tw_yr1, tw_yr2, tw_yr3, tw_yr4, tw_yr5);
+    let (mn_i0, mn_i1, mn_i2, mn_i3, mn_i4, mn_i5): (u64, u64, u64, u64, u64, u64) = fs(tw_yqi0, tw_yqi1, tw_yqi2, tw_yqi3, tw_yqi4, tw_yqi5, tw_yri0, tw_yri1, tw_yri2, tw_yri3, tw_yri4, tw_yri5);
+    // m_den = tw_xq - tw_xr (Fp2 sub)
+    let (md_r0, md_r1, md_r2, md_r3, md_r4, md_r5): (u64, u64, u64, u64, u64, u64) = fs(tw_xq0, tw_xq1, tw_xq2, tw_xq3, tw_xq4, tw_xq5, tw_xr0, tw_xr1, tw_xr2, tw_xr3, tw_xr4, tw_xr5);
+    let (md_i0, md_i1, md_i2, md_i3, md_i4, md_i5): (u64, u64, u64, u64, u64, u64) = fs(tw_xqi0, tw_xqi1, tw_xqi2, tw_xqi3, tw_xqi4, tw_xqi5, tw_xri0, tw_xri1, tw_xri2, tw_xri3, tw_xri4, tw_xri5);
+    // -tw_xr (for diff1)
+    let (neg_xr0, neg_xr1, neg_xr2, neg_xr3, neg_xr4, neg_xr5): (u64, u64, u64, u64, u64, u64) = fs(z,z,z,z,z,z, tw_xr0, tw_xr1, tw_xr2, tw_xr3, tw_xr4, tw_xr5);
+    let (neg_xri0, neg_xri1, neg_xri2, neg_xri3, neg_xri4, neg_xri5): (u64, u64, u64, u64, u64, u64) = fs(z,z,z,z,z,z, tw_xri0, tw_xri1, tw_xri2, tw_xri3, tw_xri4, tw_xri5);
+    // -tw_yr (for diff2)
+    let (neg_yr0, neg_yr1, neg_yr2, neg_yr3, neg_yr4, neg_yr5): (u64, u64, u64, u64, u64, u64) = fs(z,z,z,z,z,z, tw_yr0, tw_yr1, tw_yr2, tw_yr3, tw_yr4, tw_yr5);
+    let (neg_yri0, neg_yri1, neg_yri2, neg_yri3, neg_yri4, neg_yri5): (u64, u64, u64, u64, u64, u64) = fs(z,z,z,z,z,z, tw_yri0, tw_yri1, tw_yri2, tw_yri3, tw_yri4, tw_yri5);
+    // term1 = m_num * diff1: m_num at c2, diff1 has -tw_xr at c1, xP at c3
+    let (t1_0, t1_1, t1_2, t1_3, t1_4, t1_5, t1_6, t1_7, t1_8, t1_9, t1_10, t1_11, t1_12, t1_13, t1_14, t1_15, t1_16, t1_17, t1_18, t1_19, t1_20, t1_21, t1_22, t1_23, t1_24, t1_25, t1_26, t1_27, t1_28, t1_29, t1_30, t1_31, t1_32, t1_33, t1_34, t1_35, t1_36, t1_37, t1_38, t1_39, t1_40, t1_41, t1_42, t1_43, t1_44, t1_45, t1_46, t1_47, t1_48, t1_49, t1_50, t1_51, t1_52, t1_53, t1_54, t1_55, t1_56, t1_57, t1_58, t1_59, t1_60, t1_61, t1_62, t1_63, t1_64, t1_65, t1_66, t1_67, t1_68, t1_69, t1_70, t1_71):
+        (u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64) =
+        fp12_mul(
+            z,z,z,z,z,z, z,z,z,z,z,z, z,z,z,z,z,z,z,z,z,z,z,z, mn_r0,mn_r1,mn_r2,mn_r3,mn_r4,mn_r5,mn_i0,mn_i1,mn_i2,mn_i3,mn_i4,mn_i5, z,z,z,z,z,z,z,z,z,z,z,z, z,z,z,z,z,z,z,z,z,z,z,z, z,z,z,z,z,z,z,z,z,z,z,z,
+            z,z,z,z,z,z, z,z,z,z,z,z, neg_xr0,neg_xr1,neg_xr2,neg_xr3,neg_xr4,neg_xr5,neg_xri0,neg_xri1,neg_xri2,neg_xri3,neg_xri4,neg_xri5, z,z,z,z,z,z,z,z,z,z,z,z, px0,px1,px2,px3,px4,px5,z,z,z,z,z,z, z,z,z,z,z,z,z,z,z,z,z,z, z,z,z,z,z,z,z,z,z,z,z,z
+        );
+    // term2 = m_den * diff2: m_den at c3, diff2 has -tw_yr at c0, yP at c3
+    let (t2_0, t2_1, t2_2, t2_3, t2_4, t2_5, t2_6, t2_7, t2_8, t2_9, t2_10, t2_11, t2_12, t2_13, t2_14, t2_15, t2_16, t2_17, t2_18, t2_19, t2_20, t2_21, t2_22, t2_23, t2_24, t2_25, t2_26, t2_27, t2_28, t2_29, t2_30, t2_31, t2_32, t2_33, t2_34, t2_35, t2_36, t2_37, t2_38, t2_39, t2_40, t2_41, t2_42, t2_43, t2_44, t2_45, t2_46, t2_47, t2_48, t2_49, t2_50, t2_51, t2_52, t2_53, t2_54, t2_55, t2_56, t2_57, t2_58, t2_59, t2_60, t2_61, t2_62, t2_63, t2_64, t2_65, t2_66, t2_67, t2_68, t2_69, t2_70, t2_71):
+        (u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64) =
+        fp12_mul(
+            z,z,z,z,z,z, z,z,z,z,z,z, z,z,z,z,z,z,z,z,z,z,z,z, z,z,z,z,z,z,z,z,z,z,z,z, md_r0,md_r1,md_r2,md_r3,md_r4,md_r5,md_i0,md_i1,md_i2,md_i3,md_i4,md_i5, z,z,z,z,z,z,z,z,z,z,z,z, z,z,z,z,z,z,z,z,z,z,z,z,
+            neg_yr0,neg_yr1,neg_yr2,neg_yr3,neg_yr4,neg_yr5,neg_yri0,neg_yri1,neg_yri2,neg_yri3,neg_yri4,neg_yri5, z,z,z,z,z,z,z,z,z,z,z,z, z,z,z,z,z,z,z,z,z,z,z,z, py0,py1,py2,py3,py4,py5,z,z,z,z,z,z, z,z,z,z,z,z,z,z,z,z,z,z, z,z,z,z,z,z,z,z,z,z,z,z
+        );
+    // line_n = term1 - term2
+    let (n0, n1, n2, n3, n4, n5, n6, n7, n8, n9, n10, n11, n12, n13, n14, n15, n16, n17, n18, n19, n20, n21, n22, n23, n24, n25, n26, n27, n28, n29, n30, n31, n32, n33, n34, n35, n36, n37, n38, n39, n40, n41, n42, n43, n44, n45, n46, n47, n48, n49, n50, n51, n52, n53, n54, n55, n56, n57, n58, n59, n60, n61, n62, n63, n64, n65, n66, n67, n68, n69, n70, n71):
+        (u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64) =
+        fp12_sub(
+            t1_0, t1_1, t1_2, t1_3, t1_4, t1_5, t1_6, t1_7, t1_8, t1_9, t1_10, t1_11, t1_12, t1_13, t1_14, t1_15, t1_16, t1_17, t1_18, t1_19, t1_20, t1_21, t1_22, t1_23, t1_24, t1_25, t1_26, t1_27, t1_28, t1_29, t1_30, t1_31, t1_32, t1_33, t1_34, t1_35, t1_36, t1_37, t1_38, t1_39, t1_40, t1_41, t1_42, t1_43, t1_44, t1_45, t1_46, t1_47, t1_48, t1_49, t1_50, t1_51, t1_52, t1_53, t1_54, t1_55, t1_56, t1_57, t1_58, t1_59, t1_60, t1_61, t1_62, t1_63, t1_64, t1_65, t1_66, t1_67, t1_68, t1_69, t1_70, t1_71,
+            t2_0, t2_1, t2_2, t2_3, t2_4, t2_5, t2_6, t2_7, t2_8, t2_9, t2_10, t2_11, t2_12, t2_13, t2_14, t2_15, t2_16, t2_17, t2_18, t2_19, t2_20, t2_21, t2_22, t2_23, t2_24, t2_25, t2_26, t2_27, t2_28, t2_29, t2_30, t2_31, t2_32, t2_33, t2_34, t2_35, t2_36, t2_37, t2_38, t2_39, t2_40, t2_41, t2_42, t2_43, t2_44, t2_45, t2_46, t2_47, t2_48, t2_49, t2_50, t2_51, t2_52, t2_53, t2_54, t2_55, t2_56, t2_57, t2_58, t2_59, t2_60, t2_61, t2_62, t2_63, t2_64, t2_65, t2_66, t2_67, t2_68, t2_69, t2_70, t2_71
+        );
+    // line_d = m_den * (1 + tw_z) where tw_z = (1,0) for affine Z=(1,0)
+    // tw_z_re = 1-0 = 1, tw_z_im = 0
+    // z1_fp12 has c0 = 1, c3 = (1, 0)
+    let (d0, d1, d2, d3, d4, d5, d6, d7, d8, d9, d10, d11, d12, d13, d14, d15, d16, d17, d18, d19, d20, d21, d22, d23, d24, d25, d26, d27, d28, d29, d30, d31, d32, d33, d34, d35, d36, d37, d38, d39, d40, d41, d42, d43, d44, d45, d46, d47, d48, d49, d50, d51, d52, d53, d54, d55, d56, d57, d58, d59, d60, d61, d62, d63, d64, d65, d66, d67, d68, d69, d70, d71):
+        (u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64) =
+        fp12_mul(
+            z,z,z,z,z,z, z,z,z,z,z,z, z,z,z,z,z,z,z,z,z,z,z,z, z,z,z,z,z,z,z,z,z,z,z,z, md_r0,md_r1,md_r2,md_r3,md_r4,md_r5,md_i0,md_i1,md_i2,md_i3,md_i4,md_i5, z,z,z,z,z,z,z,z,z,z,z,z, z,z,z,z,z,z,z,z,z,z,z,z,
+            one0,one1,one2,one3,one4,one5, z,z,z,z,z,z, z,z,z,z,z,z,z,z,z,z,z,z, z,z,z,z,z,z,z,z,z,z,z,z, one0,one1,one2,one3,one4,one5,z,z,z,z,z,z, z,z,z,z,z,z,z,z,z,z,z,z, z,z,z,z,z,z,z,z,z,z,z,z
+        );
+    (n0, n1, n2, n3, n4, n5, n6, n7, n8, n9, n10, n11, n12, n13, n14, n15, n16, n17, n18, n19, n20, n21, n22, n23, n24, n25, n26, n27, n28, n29, n30, n31, n32, n33, n34, n35, n36, n37, n38, n39, n40, n41, n42, n43, n44, n45, n46, n47, n48, n49, n50, n51, n52, n53, n54, n55, n56, n57, n58, n59, n60, n61, n62, n63, n64, n65, n66, n67, n68, n69, n70, n71,
+     d0, d1, d2, d3, d4, d5, d6, d7, d8, d9, d10, d11, d12, d13, d14, d15, d16, d17, d18, d19, d20, d21, d22, d23, d24, d25, d26, d27, d28, d29, d30, d31, d32, d33, d34, d35, d36, d37, d38, d39, d40, d41, d42, d43, d44, d45, d46, d47, d48, d49, d50, d51, d52, d53, d54, d55, d56, d57, d58, d59, d60, d61, d62, d63, d64, d65, d66, d67, d68, d69, d70, d71)
+}
+
+// G2 point addition over Fp2 (Jacobian projective)
+fn g2add(
+    x1_0: u64, x1_1: u64, x1_2: u64, x1_3: u64, x1_4: u64, x1_5: u64, x1_6: u64, x1_7: u64, x1_8: u64, x1_9: u64, x1_10: u64, x1_11: u64,
+    y1_0: u64, y1_1: u64, y1_2: u64, y1_3: u64, y1_4: u64, y1_5: u64, y1_6: u64, y1_7: u64, y1_8: u64, y1_9: u64, y1_10: u64, y1_11: u64,
+    z1_0: u64, z1_1: u64, z1_2: u64, z1_3: u64, z1_4: u64, z1_5: u64, z1_6: u64, z1_7: u64, z1_8: u64, z1_9: u64, z1_10: u64, z1_11: u64,
+    x2_0: u64, x2_1: u64, x2_2: u64, x2_3: u64, x2_4: u64, x2_5: u64, x2_6: u64, x2_7: u64, x2_8: u64, x2_9: u64, x2_10: u64, x2_11: u64,
+    y2_0: u64, y2_1: u64, y2_2: u64, y2_3: u64, y2_4: u64, y2_5: u64, y2_6: u64, y2_7: u64, y2_8: u64, y2_9: u64, y2_10: u64, y2_11: u64,
+    z2_0: u64, z2_1: u64, z2_2: u64, z2_3: u64, z2_4: u64, z2_5: u64, z2_6: u64, z2_7: u64, z2_8: u64, z2_9: u64, z2_10: u64, z2_11: u64
+) -> (u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64,
+      u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64,
+      u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64) {
+    let (z1s0, z1s1, z1s2, z1s3, z1s4, z1s5, z1s6, z1s7, z1s8, z1s9, z1s10, z1s11): (u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64) = f2m(z1_0, z1_1, z1_2, z1_3, z1_4, z1_5, z1_6, z1_7, z1_8, z1_9, z1_10, z1_11, z1_0, z1_1, z1_2, z1_3, z1_4, z1_5, z1_6, z1_7, z1_8, z1_9, z1_10, z1_11);
+    let (z2s0, z2s1, z2s2, z2s3, z2s4, z2s5, z2s6, z2s7, z2s8, z2s9, z2s10, z2s11): (u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64) = f2m(z2_0, z2_1, z2_2, z2_3, z2_4, z2_5, z2_6, z2_7, z2_8, z2_9, z2_10, z2_11, z2_0, z2_1, z2_2, z2_3, z2_4, z2_5, z2_6, z2_7, z2_8, z2_9, z2_10, z2_11);
+    let (u1_0, u1_1, u1_2, u1_3, u1_4, u1_5, u1_6, u1_7, u1_8, u1_9, u1_10, u1_11): (u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64) = f2m(x1_0, x1_1, x1_2, x1_3, x1_4, x1_5, x1_6, x1_7, x1_8, x1_9, x1_10, x1_11, z2s0, z2s1, z2s2, z2s3, z2s4, z2s5, z2s6, z2s7, z2s8, z2s9, z2s10, z2s11);
+    let (u2_0, u2_1, u2_2, u2_3, u2_4, u2_5, u2_6, u2_7, u2_8, u2_9, u2_10, u2_11): (u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64) = f2m(x2_0, x2_1, x2_2, x2_3, x2_4, x2_5, x2_6, x2_7, x2_8, x2_9, x2_10, x2_11, z1s0, z1s1, z1s2, z1s3, z1s4, z1s5, z1s6, z1s7, z1s8, z1s9, z1s10, z1s11);
+    let (s1_0, s1_1, s1_2, s1_3, s1_4, s1_5, s1_6, s1_7, s1_8, s1_9, s1_10, s1_11): (u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64) = f2m(y1_0, y1_1, y1_2, y1_3, y1_4, y1_5, y1_6, y1_7, y1_8, y1_9, y1_10, y1_11, z2s0, z2s1, z2s2, z2s3, z2s4, z2s5, z2s6, z2s7, z2s8, z2s9, z2s10, z2s11);
+    let (s1_0, s1_1, s1_2, s1_3, s1_4, s1_5, s1_6, s1_7, s1_8, s1_9, s1_10, s1_11): (u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64) = f2m(s1_0, s1_1, s1_2, s1_3, s1_4, s1_5, s1_6, s1_7, s1_8, s1_9, s1_10, s1_11, z2_0, z2_1, z2_2, z2_3, z2_4, z2_5, z2_6, z2_7, z2_8, z2_9, z2_10, z2_11);
+    let (s2_0, s2_1, s2_2, s2_3, s2_4, s2_5, s2_6, s2_7, s2_8, s2_9, s2_10, s2_11): (u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64) = f2m(y2_0, y2_1, y2_2, y2_3, y2_4, y2_5, y2_6, y2_7, y2_8, y2_9, y2_10, y2_11, z1s0, z1s1, z1s2, z1s3, z1s4, z1s5, z1s6, z1s7, z1s8, z1s9, z1s10, z1s11);
+    let (s2_0, s2_1, s2_2, s2_3, s2_4, s2_5, s2_6, s2_7, s2_8, s2_9, s2_10, s2_11): (u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64) = f2m(s2_0, s2_1, s2_2, s2_3, s2_4, s2_5, s2_6, s2_7, s2_8, s2_9, s2_10, s2_11, z1_0, z1_1, z1_2, z1_3, z1_4, z1_5, z1_6, z1_7, z1_8, z1_9, z1_10, z1_11);
+    let (h0, h1, h2, h3, h4, h5, h6, h7, h8, h9, h10, h11): (u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64) = f2s(u2_0, u2_1, u2_2, u2_3, u2_4, u2_5, u2_6, u2_7, u2_8, u2_9, u2_10, u2_11, u1_0, u1_1, u1_2, u1_3, u1_4, u1_5, u1_6, u1_7, u1_8, u1_9, u1_10, u1_11);
+    let (r0, r1, r2, r3, r4, r5, r6, r7, r8, r9, r10, r11): (u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64) = f2s(s2_0, s2_1, s2_2, s2_3, s2_4, s2_5, s2_6, s2_7, s2_8, s2_9, s2_10, s2_11, s1_0, s1_1, s1_2, s1_3, s1_4, s1_5, s1_6, s1_7, s1_8, s1_9, s1_10, s1_11);
+    let (hs0, hs1, hs2, hs3, hs4, hs5, hs6, hs7, hs8, hs9, hs10, hs11): (u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64) = f2m(h0, h1, h2, h3, h4, h5, h6, h7, h8, h9, h10, h11, h0, h1, h2, h3, h4, h5, h6, h7, h8, h9, h10, h11);
+    let (hc0, hc1, hc2, hc3, hc4, hc5, hc6, hc7, hc8, hc9, hc10, hc11): (u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64) = f2m(hs0, hs1, hs2, hs3, hs4, hs5, hs6, hs7, hs8, hs9, hs10, hs11, h0, h1, h2, h3, h4, h5, h6, h7, h8, h9, h10, h11);
+    let (u1h0, u1h1, u1h2, u1h3, u1h4, u1h5, u1h6, u1h7, u1h8, u1h9, u1h10, u1h11): (u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64) = f2m(u1_0, u1_1, u1_2, u1_3, u1_4, u1_5, u1_6, u1_7, u1_8, u1_9, u1_10, u1_11, hs0, hs1, hs2, hs3, hs4, hs5, hs6, hs7, hs8, hs9, hs10, hs11);
+    let (rs0, rs1, rs2, rs3, rs4, rs5, rs6, rs7, rs8, rs9, rs10, rs11): (u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64) = f2m(r0, r1, r2, r3, r4, r5, r6, r7, r8, r9, r10, r11, r0, r1, r2, r3, r4, r5, r6, r7, r8, r9, r10, r11);
+    let (rx0, rx1, rx2, rx3, rx4, rx5, rx6, rx7, rx8, rx9, rx10, rx11): (u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64) = f2s(rs0, rs1, rs2, rs3, rs4, rs5, rs6, rs7, rs8, rs9, rs10, rs11, hc0, hc1, hc2, hc3, hc4, hc5, hc6, hc7, hc8, hc9, hc10, hc11);
+    let (u1h2_0, u1h2_1, u1h2_2, u1h2_3, u1h2_4, u1h2_5, u1h2_6, u1h2_7, u1h2_8, u1h2_9, u1h2_10, u1h2_11): (u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64) = f2a(u1h0, u1h1, u1h2, u1h3, u1h4, u1h5, u1h6, u1h7, u1h8, u1h9, u1h10, u1h11, u1h0, u1h1, u1h2, u1h3, u1h4, u1h5, u1h6, u1h7, u1h8, u1h9, u1h10, u1h11);
+    let (rx0, rx1, rx2, rx3, rx4, rx5, rx6, rx7, rx8, rx9, rx10, rx11): (u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64) = f2s(rx0, rx1, rx2, rx3, rx4, rx5, rx6, rx7, rx8, rx9, rx10, rx11, u1h2_0, u1h2_1, u1h2_2, u1h2_3, u1h2_4, u1h2_5, u1h2_6, u1h2_7, u1h2_8, u1h2_9, u1h2_10, u1h2_11);
+    let (t0, t1, t2, t3, t4, t5, t6, t7, t8, t9, t10, t11): (u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64) = f2s(u1h0, u1h1, u1h2, u1h3, u1h4, u1h5, u1h6, u1h7, u1h8, u1h9, u1h10, u1h11, rx0, rx1, rx2, rx3, rx4, rx5, rx6, rx7, rx8, rx9, rx10, rx11);
+    let (t0, t1, t2, t3, t4, t5, t6, t7, t8, t9, t10, t11): (u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64) = f2m(r0, r1, r2, r3, r4, r5, r6, r7, r8, r9, r10, r11, t0, t1, t2, t3, t4, t5, t6, t7, t8, t9, t10, t11);
+    let (s1h0, s1h1, s1h2, s1h3, s1h4, s1h5, s1h6, s1h7, s1h8, s1h9, s1h10, s1h11): (u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64) = f2m(s1_0, s1_1, s1_2, s1_3, s1_4, s1_5, s1_6, s1_7, s1_8, s1_9, s1_10, s1_11, hc0, hc1, hc2, hc3, hc4, hc5, hc6, hc7, hc8, hc9, hc10, hc11);
+    let (ry0, ry1, ry2, ry3, ry4, ry5, ry6, ry7, ry8, ry9, ry10, ry11): (u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64) = f2s(t0, t1, t2, t3, t4, t5, t6, t7, t8, t9, t10, t11, s1h0, s1h1, s1h2, s1h3, s1h4, s1h5, s1h6, s1h7, s1h8, s1h9, s1h10, s1h11);
+    let (t0, t1, t2, t3, t4, t5, t6, t7, t8, t9, t10, t11): (u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64) = f2m(z1_0, z1_1, z1_2, z1_3, z1_4, z1_5, z1_6, z1_7, z1_8, z1_9, z1_10, z1_11, z2_0, z2_1, z2_2, z2_3, z2_4, z2_5, z2_6, z2_7, z2_8, z2_9, z2_10, z2_11);
+    let (rz0, rz1, rz2, rz3, rz4, rz5, rz6, rz7, rz8, rz9, rz10, rz11): (u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64) = f2m(h0, h1, h2, h3, h4, h5, h6, h7, h8, h9, h10, h11, t0, t1, t2, t3, t4, t5, t6, t7, t8, t9, t10, t11);
+    (rx0, rx1, rx2, rx3, rx4, rx5, rx6, rx7, rx8, rx9, rx10, rx11,
+     ry0, ry1, ry2, ry3, ry4, ry5, ry6, ry7, ry8, ry9, ry10, ry11,
+     rz0, rz1, rz2, rz3, rz4, rz5, rz6, rz7, rz8, rz9, rz10, rz11)
 }
 
 fn main() {
@@ -312,9 +533,31 @@ fn main() {
         0xb3aaf398fdce3dc7, 0xe3c925cec2139894,
         0xf9d9ee29f5a42df8, 0x0753194ee3875d68));
 
+    // ===== Test fp2_inv: inv(2+3i) * (2+3i) = (1, 0) =====
+    let (two0, two1, two2, two3, two4, two5): (u64, u64, u64, u64, u64, u64) = fp_to_mont(2, 0, 0, 0, 0, 0);
+    let (thr0, thr1, thr2, thr3, thr4, thr5): (u64, u64, u64, u64, u64, u64) = fp_to_mont(3, 0, 0, 0, 0, 0);
+    let (inv_r0, inv_r1, inv_r2, inv_r3, inv_r4, inv_r5, inv_i0, inv_i1, inv_i2, inv_i3, inv_i4, inv_i5): (u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64) = fp2_inv(two0, two1, two2, two3, two4, two5, thr0, thr1, thr2, thr3, thr4, thr5);
+    // inv * (2+3i) should be (1, 0) in Montgomery form
+    let (pr0, pr1, pr2, pr3, pr4, pr5, pi0, pi1, pi2, pi3, pi4, pi5): (u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64) = f2m(inv_r0, inv_r1, inv_r2, inv_r3, inv_r4, inv_r5, inv_i0, inv_i1, inv_i2, inv_i3, inv_i4, inv_i5, two0, two1, two2, two3, two4, two5, thr0, thr1, thr2, thr3, thr4, thr5);
+    assert!(fp_eq(pr0, pr1, pr2, pr3, pr4, pr5, one0, one1, one2, one3, one4, one5));
+    assert!(fp_eq(pi0, pi1, pi2, pi3, pi4, pi5, z, z, z, z, z, z));
+
+    // ===== Test jac_to_affine: converting G2 gen (Z=1) back should give same coords =====
+    let (ax0, ax1, ax2, ax3, ax4, ax5, ax6, ax7, ax8, ax9, ax10, ax11,
+         ay0, ay1, ay2, ay3, ay4, ay5, ay6, ay7, ay8, ay9, ay10, ay11):
+        (u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64,
+         u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64) =
+        jac_to_affine(
+            gx0, gx1, gx2, gx3, gx4, gx5, gx6, gx7, gx8, gx9, gx10, gx11,
+            gy0, gy1, gy2, gy3, gy4, gy5, gy6, gy7, gy8, gy9, gy10, gy11,
+            gz0, gz1, gz2, gz3, gz4, gz5, gz6, gz7, gz8, gz9, gz10, gz11);
+    assert!(fp_eq(ax0, ax1, ax2, ax3, ax4, ax5, gx0, gx1, gx2, gx3, gx4, gx5));
+    assert!(fp_eq(ax6, ax7, ax8, ax9, ax10, ax11, gx6, gx7, gx8, gx9, gx10, gx11));
+    assert!(fp_eq(ay0, ay1, ay2, ay3, ay4, ay5, gy0, gy1, gy2, gy3, gy4, gy5));
+    assert!(fp_eq(ay6, ay7, ay8, ay9, ay10, ay11, gy6, gy7, gy8, gy9, gy10, gy11));
+
     // ===== Chain 2 doubling steps of Miller loop =====
     // Step 0: f_num = 1^2 * line_n = n0, R = g2dbl(G2)
-    // f_num is already n0..n71 from above
     let (r_x0, r_x1, r_x2, r_x3, r_x4, r_x5, r_x6, r_x7, r_x8, r_x9, r_x10, r_x11,
          r_y0, r_y1, r_y2, r_y3, r_y4, r_y5, r_y6, r_y7, r_y8, r_y9, r_y10, r_y11,
          r_z0, r_z1, r_z2, r_z3, r_z4, r_z5, r_z6, r_z7, r_z8, r_z9, r_z10, r_z11):
@@ -325,22 +568,40 @@ fn main() {
               gy0, gy1, gy2, gy3, gy4, gy5, gy6, gy7, gy8, gy9, gy10, gy11,
               gz0, gz1, gz2, gz3, gz4, gz5, gz6, gz7, gz8, gz9, gz10, gz11);
 
-    // Step 1: f_num = n0^2 * line_n(R, P), R = g2dbl(R)
-    // First: f_num_sq = n0 * n0
+    // Convert R from Jacobian to affine so line_double works correctly
+    let (ra_x0, ra_x1, ra_x2, ra_x3, ra_x4, ra_x5, ra_x6, ra_x7, ra_x8, ra_x9, ra_x10, ra_x11,
+         ra_y0, ra_y1, ra_y2, ra_y3, ra_y4, ra_y5, ra_y6, ra_y7, ra_y8, ra_y9, ra_y10, ra_y11):
+        (u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64,
+         u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64) =
+        jac_to_affine(r_x0, r_x1, r_x2, r_x3, r_x4, r_x5, r_x6, r_x7, r_x8, r_x9, r_x10, r_x11,
+                      r_y0, r_y1, r_y2, r_y3, r_y4, r_y5, r_y6, r_y7, r_y8, r_y9, r_y10, r_y11,
+                      r_z0, r_z1, r_z2, r_z3, r_z4, r_z5, r_z6, r_z7, r_z8, r_z9, r_z10, r_z11);
+
+    // Verify affine R coords (from py_ecc)
+    assert!(fp_eq(ra_x0, ra_x1, ra_x2, ra_x3, ra_x4, ra_x5,
+        0xe9d9e2da9620f98b, 0x54f1199346b97f36,
+        0x3db3b820376bed27, 0xcfdb31c9b0b64f4c,
+        0x41d7c12786354493, 0x05710794c255c064));
+    assert!(fp_eq(ra_x6, ra_x7, ra_x8, ra_x9, ra_x10, ra_x11,
+        0xd6c1d3ca6ea0d06e, 0xda0cbd905595489f,
+        0x4f5352d43479221d, 0x8ade5d736f8c97e0,
+        0x48cc8433925ef70e, 0x08d7ea71ea91ef81));
+
+    // Step 1: f_num = n0^2 * line_n(R_aff, P), R = g2dbl(R_aff)
     let (fsq_0, fsq_1, fsq_2, fsq_3, fsq_4, fsq_5, fsq_6, fsq_7, fsq_8, fsq_9, fsq_10, fsq_11, fsq_12, fsq_13, fsq_14, fsq_15, fsq_16, fsq_17, fsq_18, fsq_19, fsq_20, fsq_21, fsq_22, fsq_23, fsq_24, fsq_25, fsq_26, fsq_27, fsq_28, fsq_29, fsq_30, fsq_31, fsq_32, fsq_33, fsq_34, fsq_35, fsq_36, fsq_37, fsq_38, fsq_39, fsq_40, fsq_41, fsq_42, fsq_43, fsq_44, fsq_45, fsq_46, fsq_47, fsq_48, fsq_49, fsq_50, fsq_51, fsq_52, fsq_53, fsq_54, fsq_55, fsq_56, fsq_57, fsq_58, fsq_59, fsq_60, fsq_61, fsq_62, fsq_63, fsq_64, fsq_65, fsq_66, fsq_67, fsq_68, fsq_69, fsq_70, fsq_71):
         (u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64) =
         fp12_mul(n0, n1, n2, n3, n4, n5, n6, n7, n8, n9, n10, n11, n12, n13, n14, n15, n16, n17, n18, n19, n20, n21, n22, n23, n24, n25, n26, n27, n28, n29, n30, n31, n32, n33, n34, n35, n36, n37, n38, n39, n40, n41, n42, n43, n44, n45, n46, n47, n48, n49, n50, n51, n52, n53, n54, n55, n56, n57, n58, n59, n60, n61, n62, n63, n64, n65, n66, n67, n68, n69, n70, n71,
                  n0, n1, n2, n3, n4, n5, n6, n7, n8, n9, n10, n11, n12, n13, n14, n15, n16, n17, n18, n19, n20, n21, n22, n23, n24, n25, n26, n27, n28, n29, n30, n31, n32, n33, n34, n35, n36, n37, n38, n39, n40, n41, n42, n43, n44, n45, n46, n47, n48, n49, n50, n51, n52, n53, n54, n55, n56, n57, n58, n59, n60, n61, n62, n63, n64, n65, n66, n67, n68, n69, n70, n71);
 
-    // Compute line at R (doubled G2)
+    // Compute line at R_aff (now with Z=(1,0))
     let (ln1_0, ln1_1, ln1_2, ln1_3, ln1_4, ln1_5, ln1_6, ln1_7, ln1_8, ln1_9, ln1_10, ln1_11, ln1_12, ln1_13, ln1_14, ln1_15, ln1_16, ln1_17, ln1_18, ln1_19, ln1_20, ln1_21, ln1_22, ln1_23, ln1_24, ln1_25, ln1_26, ln1_27, ln1_28, ln1_29, ln1_30, ln1_31, ln1_32, ln1_33, ln1_34, ln1_35, ln1_36, ln1_37, ln1_38, ln1_39, ln1_40, ln1_41, ln1_42, ln1_43, ln1_44, ln1_45, ln1_46, ln1_47, ln1_48, ln1_49, ln1_50, ln1_51, ln1_52, ln1_53, ln1_54, ln1_55, ln1_56, ln1_57, ln1_58, ln1_59, ln1_60, ln1_61, ln1_62, ln1_63, ln1_64, ln1_65, ln1_66, ln1_67, ln1_68, ln1_69, ln1_70, ln1_71,
          ld1_0, ld1_1, ld1_2, ld1_3, ld1_4, ld1_5, ld1_6, ld1_7, ld1_8, ld1_9, ld1_10, ld1_11, ld1_12, ld1_13, ld1_14, ld1_15, ld1_16, ld1_17, ld1_18, ld1_19, ld1_20, ld1_21, ld1_22, ld1_23, ld1_24, ld1_25, ld1_26, ld1_27, ld1_28, ld1_29, ld1_30, ld1_31, ld1_32, ld1_33, ld1_34, ld1_35, ld1_36, ld1_37, ld1_38, ld1_39, ld1_40, ld1_41, ld1_42, ld1_43, ld1_44, ld1_45, ld1_46, ld1_47, ld1_48, ld1_49, ld1_50, ld1_51, ld1_52, ld1_53, ld1_54, ld1_55, ld1_56, ld1_57, ld1_58, ld1_59, ld1_60, ld1_61, ld1_62, ld1_63, ld1_64, ld1_65, ld1_66, ld1_67, ld1_68, ld1_69, ld1_70, ld1_71):
         (u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64,
          u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64) =
         line_double(
-            r_x0, r_x1, r_x2, r_x3, r_x4, r_x5, r_x6, r_x7, r_x8, r_x9, r_x10, r_x11,
-            r_y0, r_y1, r_y2, r_y3, r_y4, r_y5, r_y6, r_y7, r_y8, r_y9, r_y10, r_y11,
-            r_z0, r_z1, r_z2, r_z3, r_z4, r_z5, r_z6, r_z7, r_z8, r_z9, r_z10, r_z11,
+            ra_x0, ra_x1, ra_x2, ra_x3, ra_x4, ra_x5, ra_x6, ra_x7, ra_x8, ra_x9, ra_x10, ra_x11,
+            ra_y0, ra_y1, ra_y2, ra_y3, ra_y4, ra_y5, ra_y6, ra_y7, ra_y8, ra_y9, ra_y10, ra_y11,
+            one0, one1, one2, one3, one4, one5, z, z, z, z, z, z,
             px0, px1, px2, px3, px4, px5, py0, py1, py2, py3, py4, py5
         );
 
@@ -350,9 +611,9 @@ fn main() {
         fp12_mul(fsq_0, fsq_1, fsq_2, fsq_3, fsq_4, fsq_5, fsq_6, fsq_7, fsq_8, fsq_9, fsq_10, fsq_11, fsq_12, fsq_13, fsq_14, fsq_15, fsq_16, fsq_17, fsq_18, fsq_19, fsq_20, fsq_21, fsq_22, fsq_23, fsq_24, fsq_25, fsq_26, fsq_27, fsq_28, fsq_29, fsq_30, fsq_31, fsq_32, fsq_33, fsq_34, fsq_35, fsq_36, fsq_37, fsq_38, fsq_39, fsq_40, fsq_41, fsq_42, fsq_43, fsq_44, fsq_45, fsq_46, fsq_47, fsq_48, fsq_49, fsq_50, fsq_51, fsq_52, fsq_53, fsq_54, fsq_55, fsq_56, fsq_57, fsq_58, fsq_59, fsq_60, fsq_61, fsq_62, fsq_63, fsq_64, fsq_65, fsq_66, fsq_67, fsq_68, fsq_69, fsq_70, fsq_71,
                  ln1_0, ln1_1, ln1_2, ln1_3, ln1_4, ln1_5, ln1_6, ln1_7, ln1_8, ln1_9, ln1_10, ln1_11, ln1_12, ln1_13, ln1_14, ln1_15, ln1_16, ln1_17, ln1_18, ln1_19, ln1_20, ln1_21, ln1_22, ln1_23, ln1_24, ln1_25, ln1_26, ln1_27, ln1_28, ln1_29, ln1_30, ln1_31, ln1_32, ln1_33, ln1_34, ln1_35, ln1_36, ln1_37, ln1_38, ln1_39, ln1_40, ln1_41, ln1_42, ln1_43, ln1_44, ln1_45, ln1_46, ln1_47, ln1_48, ln1_49, ln1_50, ln1_51, ln1_52, ln1_53, ln1_54, ln1_55, ln1_56, ln1_57, ln1_58, ln1_59, ln1_60, ln1_61, ln1_62, ln1_63, ln1_64, ln1_65, ln1_66, ln1_67, ln1_68, ln1_69, ln1_70, ln1_71);
 
-    // Verify f_num after 2 doubling steps
+    // Verify f_num[0] (c0.c0.re) after 2 doubling steps — matches py_ecc
     assert!(fp_eq(fn_0, fn_1, fn_2, fn_3, fn_4, fn_5,
-        0x4b34ce89d30a8481, 0xaad51a261c652eeb,
-        0xc4d61794607f9e36, 0x089901e877519e7e,
-        0xcde73c0ac48350c6, 0x10012281229a0cb6));
+        0x2b727ca0a28b128a, 0x3fb018c236386c06,
+        0xbda00d5d432e67a4, 0xf31997844bd332dd,
+        0xc55d3f327c817fcc, 0x13c365df1760bb5f));
 }
