@@ -603,4 +603,92 @@ fn main() {
         0x91f4cb010730ae1e, 0xbca43b98deaafaed,
         0x3fd323753489cac9, 0x0ce3b57b79179843
     ));
+
+    // Test 2: 2*G via scalar mul matches doubling
+    let k2: u256 = <((u64, u64), (u64, u64))>::into((
+        (0x8000000000000000, 0x0000000000000000),
+        (0x0000000000000000, 0x0000000000000000)
+    ));
+    let (rx0, rx1, rx2, rx3, rx4, rx5,
+         ry0, ry1, ry2, ry3, ry4, ry5,
+         rz0, rz1, rz2, rz3, rz4, rz5):
+        (u64, u64, u64, u64, u64, u64,
+         u64, u64, u64, u64, u64, u64,
+         u64, u64, u64, u64, u64, u64) =
+        g1_scalar_mul(k2,
+            gx0, gx1, gx2, gx3, gx4, gx5,
+            gy0, gy1, gy2, gy3, gy4, gy5,
+            gz0, gz1, gz2, gz3, gz4, gz5);
+    let (ax0, ax1, ax2, ax3, ax4, ax5): (u64, u64, u64, u64, u64, u64) =
+        fp_from_mont(rx0, rx1, rx2, rx3, rx4, rx5);
+    assert!(fp_eq(
+        ax0, ax1, ax2, ax3, ax4, ax5,
+        0xc39a8c5529bf0f4e, 0xe28f75bb8f1c7c42,
+        0x43902d0ac358a62a, 0x9721db3091280125,
+        0x8808c8eb50a9450c, 0x0572cbea904d6746
+    ));
+
+    // Test 3: 7*G (both x and y coordinates)
+    let k7: u256 = <((u64, u64), (u64, u64))>::into((
+        (0xe000000000000000, 0x0000000000000000),
+        (0x0000000000000000, 0x0000000000000000)
+    ));
+    let (rx0, rx1, rx2, rx3, rx4, rx5,
+         ry0, ry1, ry2, ry3, ry4, ry5,
+         rz0, rz1, rz2, rz3, rz4, rz5):
+        (u64, u64, u64, u64, u64, u64,
+         u64, u64, u64, u64, u64, u64,
+         u64, u64, u64, u64, u64, u64) =
+        g1_scalar_mul(k7,
+            gx0, gx1, gx2, gx3, gx4, gx5,
+            gy0, gy1, gy2, gy3, gy4, gy5,
+            gz0, gz1, gz2, gz3, gz4, gz5);
+    let (ax0, ax1, ax2, ax3, ax4, ax5): (u64, u64, u64, u64, u64, u64) =
+        fp_from_mont(rx0, rx1, rx2, rx3, rx4, rx5);
+    let (ay0, ay1, ay2, ay3, ay4, ay5): (u64, u64, u64, u64, u64, u64) =
+        fp_from_mont(ry0, ry1, ry2, ry3, ry4, ry5);
+    assert!(fp_eq(
+        ax0, ax1, ax2, ax3, ax4, ax5,
+        0x54ef5a70627efcb7, 0x7b2ae6bcd4c5bc2d,
+        0x0df3be9116ef2ef2, 0xc97dca00b21f12ac,
+        0xcf0145da903b40a4, 0x1928f3beb93519ee
+    ));
+    assert!(fp_eq(
+        ay0, ay1, ay2, ay3, ay4, ay5,
+        0x5a11ec7e28981a1c, 0xfdc66849cfa1b08c,
+        0x39d7383959a41c10, 0x3a8a1d47818edd18,
+        0x5639d5ae3089b3c4, 0x108dadbaa4b63644
+    ));
+
+    // Test 4: Large 256-bit scalar (both x and y)
+    let k_big: u256 = <((u64, u64), (u64, u64))>::into((
+        (0xdeadbeef12345678, 0xcafebabe87654321),
+        (0xaabbccdd11223344, 0xdeadbeefcafebabe)
+    ));
+    let (rx0, rx1, rx2, rx3, rx4, rx5,
+         ry0, ry1, ry2, ry3, ry4, ry5,
+         rz0, rz1, rz2, rz3, rz4, rz5):
+        (u64, u64, u64, u64, u64, u64,
+         u64, u64, u64, u64, u64, u64,
+         u64, u64, u64, u64, u64, u64) =
+        g1_scalar_mul(k_big,
+            gx0, gx1, gx2, gx3, gx4, gx5,
+            gy0, gy1, gy2, gy3, gy4, gy5,
+            gz0, gz1, gz2, gz3, gz4, gz5);
+    let (ax0, ax1, ax2, ax3, ax4, ax5): (u64, u64, u64, u64, u64, u64) =
+        fp_from_mont(rx0, rx1, rx2, rx3, rx4, rx5);
+    let (ay0, ay1, ay2, ay3, ay4, ay5): (u64, u64, u64, u64, u64, u64) =
+        fp_from_mont(ry0, ry1, ry2, ry3, ry4, ry5);
+    assert!(fp_eq(
+        ax0, ax1, ax2, ax3, ax4, ax5,
+        0x631813f5ca3ddc31, 0x871f896eafb9f527,
+        0x6b3f3ea212b8f0ff, 0x054a9ec97957989c,
+        0xf538a50b99a74101, 0x0bd00cd5a55c8ad2
+    ));
+    assert!(fp_eq(
+        ay0, ay1, ay2, ay3, ay4, ay5,
+        0x7809ae6847313f71, 0xa5f2b2fc2603fd34,
+        0x8fa693ab47b36d94, 0x87ad34567d1fce4b,
+        0x0d96a0b2bdbe7d14, 0x05606d17be756c58
+    ));
 }
