@@ -1,0 +1,302 @@
+/*
+ * BLS12-381 Fp2 EXTENSION FIELD ARITHMETIC
+ *
+ * Fp2 = Fp[u] / (u^2 + 1)
+ * Elements: (a, b) representing a + b*u
+ * Arithmetic: mul uses Karatsuba-like formula
+ *
+ * Phase 3a of Groth16 ZK proof verifier for SimplicityHL.
+ */
+
+// ============================================================
+// Fp Montgomery primitives (same as fp.simf)
+// ============================================================
+
+fn split(x: u128) -> (u64, u64) { <u128>::into(x) }
+
+fn add6(
+    a0: u64, a1: u64, a2: u64, a3: u64, a4: u64, a5: u64,
+    b0: u64, b1: u64, b2: u64, b3: u64, b4: u64, b5: u64
+) -> (bool, u64, u64, u64, u64, u64, u64) {
+    let (c0, r0): (bool, u64) = jet::add_64(a0, b0);
+    let (c1, r1): (bool, u64) = jet::full_add_64(c0, a1, b1);
+    let (c2, r2): (bool, u64) = jet::full_add_64(c1, a2, b2);
+    let (c3, r3): (bool, u64) = jet::full_add_64(c2, a3, b3);
+    let (c4, r4): (bool, u64) = jet::full_add_64(c3, a4, b4);
+    let (c5, r5): (bool, u64) = jet::full_add_64(c4, a5, b5);
+    (c5, r0, r1, r2, r3, r4, r5)
+}
+
+fn sub6(
+    a0: u64, a1: u64, a2: u64, a3: u64, a4: u64, a5: u64,
+    b0: u64, b1: u64, b2: u64, b3: u64, b4: u64, b5: u64
+) -> (bool, u64, u64, u64, u64, u64, u64) {
+    let (w0, r0): (bool, u64) = jet::subtract_64(a0, b0);
+    let (w1, r1): (bool, u64) = jet::full_subtract_64(w0, a1, b1);
+    let (w2, r2): (bool, u64) = jet::full_subtract_64(w1, a2, b2);
+    let (w3, r3): (bool, u64) = jet::full_subtract_64(w2, a3, b3);
+    let (w4, r4): (bool, u64) = jet::full_subtract_64(w3, a4, b4);
+    let (w5, r5): (bool, u64) = jet::full_subtract_64(w4, a5, b5);
+    (w5, r0, r1, r2, r3, r4, r5)
+}
+
+fn fp_gte(
+    a0: u64, a1: u64, a2: u64, a3: u64, a4: u64, a5: u64,
+    b0: u64, b1: u64, b2: u64, b3: u64, b4: u64, b5: u64
+) -> bool {
+    match jet::lt_64(a5, b5) { true => false, false => match jet::lt_64(b5, a5) { true => true, false => match jet::lt_64(a4, b4) { true => false, false => match jet::lt_64(b4, a4) { true => true, false => match jet::lt_64(a3, b3) { true => false, false => match jet::lt_64(b3, a3) { true => true, false => match jet::lt_64(a2, b2) { true => false, false => match jet::lt_64(b2, a2) { true => true, false => match jet::lt_64(a1, b1) { true => false, false => match jet::lt_64(b1, a1) { true => true, false => jet::le_64(b0, a0), }, }, }, }, }, }, }, }, }, }
+}
+
+fn fp_eq(
+    a0: u64, a1: u64, a2: u64, a3: u64, a4: u64, a5: u64,
+    b0: u64, b1: u64, b2: u64, b3: u64, b4: u64, b5: u64
+) -> bool {
+    match jet::eq_64(a0, b0) { false => false, true => match jet::eq_64(a1, b1) { false => false, true => match jet::eq_64(a2, b2) { false => false, true => match jet::eq_64(a3, b3) { false => false, true => match jet::eq_64(a4, b4) { false => false, true => jet::eq_64(a5, b5), }, }, }, }, }
+}
+
+fn mont_limb(mm: u64, pj: u64, tj: u64, carry: u64) -> (u64, u64) {
+    let (ph, pl): (u64, u64) = split(jet::multiply_64(mm, pj));
+    let (c1, s1): (bool, u64) = jet::add_64(pl, tj);
+    let (c2, r): (bool, u64) = jet::add_64(s1, carry);
+    let c1_64: u64 = jet::left_pad_low_1_64(<bool>::into(c1));
+    let c2_64: u64 = jet::left_pad_low_1_64(<bool>::into(c2));
+    let (_, nc): (bool, u64) = jet::add_64(ph, c1_64);
+    let (_, nc): (bool, u64) = jet::add_64(nc, c2_64);
+    (r, nc)
+}
+
+fn mround(
+    ti: u64,
+    t0: u64, t1: u64, t2: u64, t3: u64, t4: u64, t5: u64, tnext: u64
+) -> (u64, u64, u64, u64, u64, u64, u64) {
+    let (_, mm): (u64, u64) = split(jet::multiply_64(ti, 0x89f3fffcfffcfffd));
+    let (_, carry): (u64, u64) = mont_limb(mm, 0xb9feffffffffaaab, ti, 0);
+    let (t0, carry): (u64, u64) = mont_limb(mm, 0x1eabfffeb153ffff, t0, carry);
+    let (t1, carry): (u64, u64) = mont_limb(mm, 0x6730d2a0f6b0f624, t1, carry);
+    let (t2, carry): (u64, u64) = mont_limb(mm, 0x64774b84f38512bf, t2, carry);
+    let (t3, carry): (u64, u64) = mont_limb(mm, 0x4b1ba7b6434bacd7, t3, carry);
+    let (t4, carry): (u64, u64) = mont_limb(mm, 0x1a0111ea397fe69a, t4, carry);
+    let (_, t5): (bool, u64) = jet::add_64(tnext, carry);
+    (t0, t1, t2, t3, t4, t5, 0)
+}
+
+fn redc(
+    t0: u64, t1: u64, t2: u64, t3: u64, t4: u64, t5: u64,
+    t6: u64, t7: u64, t8: u64, t9: u64, t10: u64, t11: u64
+) -> (u64, u64, u64, u64, u64, u64) {
+    let (t1, t2, t3, t4, t5, t6, _): (u64, u64, u64, u64, u64, u64, u64) = mround(t0, t1, t2, t3, t4, t5, t6, t7);
+    let (t2, t3, t4, t5, t6, t7, _): (u64, u64, u64, u64, u64, u64, u64) = mround(t1, t2, t3, t4, t5, t6, t7, t8);
+    let (t3, t4, t5, t6, t7, t8, _): (u64, u64, u64, u64, u64, u64, u64) = mround(t2, t3, t4, t5, t6, t7, t8, t9);
+    let (t4, t5, t6, t7, t8, t9, _): (u64, u64, u64, u64, u64, u64, u64) = mround(t3, t4, t5, t6, t7, t8, t9, t10);
+    let (t5, t6, t7, t8, t9, t10, _): (u64, u64, u64, u64, u64, u64, u64) = mround(t4, t5, t6, t7, t8, t9, t10, t11);
+    let (t6, t7, t8, t9, t10, t11, _): (u64, u64, u64, u64, u64, u64, u64) = mround(t5, t6, t7, t8, t9, t10, t11, 0);
+    let p0: u64 = 0xb9feffffffffaaab; let p1: u64 = 0x1eabfffeb153ffff;
+    let p2: u64 = 0x6730d2a0f6b0f624; let p3: u64 = 0x64774b84f38512bf;
+    let p4: u64 = 0x4b1ba7b6434bacd7; let p5: u64 = 0x1a0111ea397fe69a;
+    match fp_gte(t6, t7, t8, t9, t10, t11, p0, p1, p2, p3, p4, p5) {
+        true => { let (_, s0, s1, s2, s3, s4, s5): (bool, u64, u64, u64, u64, u64, u64) = sub6(t6, t7, t8, t9, t10, t11, p0, p1, p2, p3, p4, p5); (s0, s1, s2, s3, s4, s5) },
+        false => (t6, t7, t8, t9, t10, t11),
+    }
+}
+
+fn acc_add(al: u64, ah: u64, ac: u64, prod: u128) -> (u64, u64, u64) {
+    let (ph, pl): (u64, u64) = split(prod);
+    let (c0, rl): (bool, u64) = jet::add_64(al, pl);
+    let (c1, rh): (bool, u64) = jet::full_add_64(c0, ah, ph);
+    let (_, rc): (bool, u64) = jet::full_add_64(c1, ac, 0);
+    (rl, rh, rc)
+}
+fn col0(a0: u64, b0: u64, cl: u64, ch: u64) -> (u64, u64, u64) { acc_add(cl, ch, 0, jet::multiply_64(a0, b0)) }
+fn col1(a0: u64, a1: u64, b0: u64, b1: u64, cl: u64, ch: u64) -> (u64, u64, u64) { let (l, h, c): (u64, u64, u64) = acc_add(cl, ch, 0, jet::multiply_64(a0, b1)); acc_add(l, h, c, jet::multiply_64(a1, b0)) }
+fn col2(a0: u64, a1: u64, a2: u64, b0: u64, b1: u64, b2: u64, cl: u64, ch: u64) -> (u64, u64, u64) { let (l, h, c): (u64, u64, u64) = acc_add(cl, ch, 0, jet::multiply_64(a0, b2)); let (l, h, c): (u64, u64, u64) = acc_add(l, h, c, jet::multiply_64(a1, b1)); acc_add(l, h, c, jet::multiply_64(a2, b0)) }
+fn col3(a0: u64, a1: u64, a2: u64, a3: u64, b0: u64, b1: u64, b2: u64, b3: u64, cl: u64, ch: u64) -> (u64, u64, u64) { let (l, h, c): (u64, u64, u64) = acc_add(cl, ch, 0, jet::multiply_64(a0, b3)); let (l, h, c): (u64, u64, u64) = acc_add(l, h, c, jet::multiply_64(a1, b2)); let (l, h, c): (u64, u64, u64) = acc_add(l, h, c, jet::multiply_64(a2, b1)); acc_add(l, h, c, jet::multiply_64(a3, b0)) }
+fn col4(a0: u64, a1: u64, a2: u64, a3: u64, a4: u64, b0: u64, b1: u64, b2: u64, b3: u64, b4: u64, cl: u64, ch: u64) -> (u64, u64, u64) { let (l, h, c): (u64, u64, u64) = acc_add(cl, ch, 0, jet::multiply_64(a0, b4)); let (l, h, c): (u64, u64, u64) = acc_add(l, h, c, jet::multiply_64(a1, b3)); let (l, h, c): (u64, u64, u64) = acc_add(l, h, c, jet::multiply_64(a2, b2)); let (l, h, c): (u64, u64, u64) = acc_add(l, h, c, jet::multiply_64(a3, b1)); acc_add(l, h, c, jet::multiply_64(a4, b0)) }
+fn col5(a0: u64, a1: u64, a2: u64, a3: u64, a4: u64, a5: u64, b0: u64, b1: u64, b2: u64, b3: u64, b4: u64, b5: u64, cl: u64, ch: u64) -> (u64, u64, u64) { let (l, h, c): (u64, u64, u64) = acc_add(cl, ch, 0, jet::multiply_64(a0, b5)); let (l, h, c): (u64, u64, u64) = acc_add(l, h, c, jet::multiply_64(a1, b4)); let (l, h, c): (u64, u64, u64) = acc_add(l, h, c, jet::multiply_64(a2, b3)); let (l, h, c): (u64, u64, u64) = acc_add(l, h, c, jet::multiply_64(a3, b2)); let (l, h, c): (u64, u64, u64) = acc_add(l, h, c, jet::multiply_64(a4, b1)); acc_add(l, h, c, jet::multiply_64(a5, b0)) }
+fn col6(a1: u64, a2: u64, a3: u64, a4: u64, a5: u64, b1: u64, b2: u64, b3: u64, b4: u64, b5: u64, cl: u64, ch: u64) -> (u64, u64, u64) { let (l, h, c): (u64, u64, u64) = acc_add(cl, ch, 0, jet::multiply_64(a1, b5)); let (l, h, c): (u64, u64, u64) = acc_add(l, h, c, jet::multiply_64(a2, b4)); let (l, h, c): (u64, u64, u64) = acc_add(l, h, c, jet::multiply_64(a3, b3)); let (l, h, c): (u64, u64, u64) = acc_add(l, h, c, jet::multiply_64(a4, b2)); acc_add(l, h, c, jet::multiply_64(a5, b1)) }
+fn col7(a2: u64, a3: u64, a4: u64, a5: u64, b2: u64, b3: u64, b4: u64, b5: u64, cl: u64, ch: u64) -> (u64, u64, u64) { let (l, h, c): (u64, u64, u64) = acc_add(cl, ch, 0, jet::multiply_64(a2, b5)); let (l, h, c): (u64, u64, u64) = acc_add(l, h, c, jet::multiply_64(a3, b4)); let (l, h, c): (u64, u64, u64) = acc_add(l, h, c, jet::multiply_64(a4, b3)); acc_add(l, h, c, jet::multiply_64(a5, b2)) }
+fn col8(a3: u64, a4: u64, a5: u64, b3: u64, b4: u64, b5: u64, cl: u64, ch: u64) -> (u64, u64, u64) { let (l, h, c): (u64, u64, u64) = acc_add(cl, ch, 0, jet::multiply_64(a3, b5)); let (l, h, c): (u64, u64, u64) = acc_add(l, h, c, jet::multiply_64(a4, b4)); acc_add(l, h, c, jet::multiply_64(a5, b3)) }
+fn col9(a4: u64, a5: u64, b4: u64, b5: u64, cl: u64, ch: u64) -> (u64, u64, u64) { let (l, h, c): (u64, u64, u64) = acc_add(cl, ch, 0, jet::multiply_64(a4, b5)); acc_add(l, h, c, jet::multiply_64(a5, b4)) }
+fn col10(a5: u64, b5: u64, cl: u64, ch: u64) -> (u64, u64, u64) { acc_add(cl, ch, 0, jet::multiply_64(a5, b5)) }
+
+fn mul6x6(
+    a0: u64, a1: u64, a2: u64, a3: u64, a4: u64, a5: u64,
+    b0: u64, b1: u64, b2: u64, b3: u64, b4: u64, b5: u64
+) -> (u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64) {
+    let (r0, ch, cc): (u64, u64, u64) = col0(a0, b0, 0, 0);
+    let (r1, ch, cc): (u64, u64, u64) = col1(a0, a1, b0, b1, ch, cc);
+    let (r2, ch, cc): (u64, u64, u64) = col2(a0, a1, a2, b0, b1, b2, ch, cc);
+    let (r3, ch, cc): (u64, u64, u64) = col3(a0, a1, a2, a3, b0, b1, b2, b3, ch, cc);
+    let (r4, ch, cc): (u64, u64, u64) = col4(a0, a1, a2, a3, a4, b0, b1, b2, b3, b4, ch, cc);
+    let (r5, ch, cc): (u64, u64, u64) = col5(a0, a1, a2, a3, a4, a5, b0, b1, b2, b3, b4, b5, ch, cc);
+    let (r6, ch, cc): (u64, u64, u64) = col6(a1, a2, a3, a4, a5, b1, b2, b3, b4, b5, ch, cc);
+    let (r7, ch, cc): (u64, u64, u64) = col7(a2, a3, a4, a5, b2, b3, b4, b5, ch, cc);
+    let (r8, ch, cc): (u64, u64, u64) = col8(a3, a4, a5, b3, b4, b5, ch, cc);
+    let (r9, ch, cc): (u64, u64, u64) = col9(a4, a5, b4, b5, ch, cc);
+    let (r10, r11, _): (u64, u64, u64) = col10(a5, b5, ch, cc);
+    (r0, r1, r2, r3, r4, r5, r6, r7, r8, r9, r10, r11)
+}
+
+// Fp Montgomery mul
+fn fm(a0: u64, a1: u64, a2: u64, a3: u64, a4: u64, a5: u64,
+      b0: u64, b1: u64, b2: u64, b3: u64, b4: u64, b5: u64) -> (u64, u64, u64, u64, u64, u64) {
+    let (t0, t1, t2, t3, t4, t5, t6, t7, t8, t9, t10, t11): (u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64) = mul6x6(a0, a1, a2, a3, a4, a5, b0, b1, b2, b3, b4, b5);
+    redc(t0, t1, t2, t3, t4, t5, t6, t7, t8, t9, t10, t11)
+}
+
+fn fa(a0: u64, a1: u64, a2: u64, a3: u64, a4: u64, a5: u64,
+      b0: u64, b1: u64, b2: u64, b3: u64, b4: u64, b5: u64) -> (u64, u64, u64, u64, u64, u64) {
+    let (carry, r0, r1, r2, r3, r4, r5): (bool, u64, u64, u64, u64, u64, u64) = add6(a0, a1, a2, a3, a4, a5, b0, b1, b2, b3, b4, b5);
+    let p0: u64 = 0xb9feffffffffaaab; let p1: u64 = 0x1eabfffeb153ffff; let p2: u64 = 0x6730d2a0f6b0f624; let p3: u64 = 0x64774b84f38512bf; let p4: u64 = 0x4b1ba7b6434bacd7; let p5: u64 = 0x1a0111ea397fe69a;
+    match carry { true => { let (_, s0, s1, s2, s3, s4, s5): (bool, u64, u64, u64, u64, u64, u64) = sub6(r0, r1, r2, r3, r4, r5, p0, p1, p2, p3, p4, p5); (s0, s1, s2, s3, s4, s5) }, false => match fp_gte(r0, r1, r2, r3, r4, r5, p0, p1, p2, p3, p4, p5) { true => { let (_, s0, s1, s2, s3, s4, s5): (bool, u64, u64, u64, u64, u64, u64) = sub6(r0, r1, r2, r3, r4, r5, p0, p1, p2, p3, p4, p5); (s0, s1, s2, s3, s4, s5) }, false => (r0, r1, r2, r3, r4, r5), }, }
+}
+
+fn fs(a0: u64, a1: u64, a2: u64, a3: u64, a4: u64, a5: u64,
+      b0: u64, b1: u64, b2: u64, b3: u64, b4: u64, b5: u64) -> (u64, u64, u64, u64, u64, u64) {
+    let (borrow, r0, r1, r2, r3, r4, r5): (bool, u64, u64, u64, u64, u64, u64) = sub6(a0, a1, a2, a3, a4, a5, b0, b1, b2, b3, b4, b5);
+    let p0: u64 = 0xb9feffffffffaaab; let p1: u64 = 0x1eabfffeb153ffff; let p2: u64 = 0x6730d2a0f6b0f624; let p3: u64 = 0x64774b84f38512bf; let p4: u64 = 0x4b1ba7b6434bacd7; let p5: u64 = 0x1a0111ea397fe69a;
+    match borrow { true => { let (_, s0, s1, s2, s3, s4, s5): (bool, u64, u64, u64, u64, u64, u64) = add6(r0, r1, r2, r3, r4, r5, p0, p1, p2, p3, p4, p5); (s0, s1, s2, s3, s4, s5) }, false => (r0, r1, r2, r3, r4, r5), }
+}
+
+fn fp_to_mont(a0: u64, a1: u64, a2: u64, a3: u64, a4: u64, a5: u64) -> (u64, u64, u64, u64, u64, u64) {
+    fm(a0, a1, a2, a3, a4, a5, 0xf4df1f341c341746, 0x0a76e6a609d104f1, 0x8de5476c4c95b6d5, 0x67eb88a9939d83c0, 0x9a793e85b519952d, 0x11988fe592cae3aa)
+}
+
+fn fp_from_mont(a0: u64, a1: u64, a2: u64, a3: u64, a4: u64, a5: u64) -> (u64, u64, u64, u64, u64, u64) {
+    redc(a0, a1, a2, a3, a4, a5, 0, 0, 0, 0, 0, 0)
+}
+
+// ============================================================
+// Fp2 operations: elements are (a, b) = a + b*u, u^2 = -1
+// All Fp values in Montgomery form
+// ============================================================
+
+// Fp2 multiply: (a1+b1*u)(a2+b2*u) = (a1*a2 - b1*b2) + (a1*b2 + b1*a2)*u
+fn fp2_mul(
+    a1_0: u64, a1_1: u64, a1_2: u64, a1_3: u64, a1_4: u64, a1_5: u64,
+    b1_0: u64, b1_1: u64, b1_2: u64, b1_3: u64, b1_4: u64, b1_5: u64,
+    a2_0: u64, a2_1: u64, a2_2: u64, a2_3: u64, a2_4: u64, a2_5: u64,
+    b2_0: u64, b2_1: u64, b2_2: u64, b2_3: u64, b2_4: u64, b2_5: u64
+) -> (u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64) {
+    // v0 = a1*a2, v1 = b1*b2
+    let (v0_0, v0_1, v0_2, v0_3, v0_4, v0_5): (u64, u64, u64, u64, u64, u64) =
+        fm(a1_0, a1_1, a1_2, a1_3, a1_4, a1_5, a2_0, a2_1, a2_2, a2_3, a2_4, a2_5);
+    let (v1_0, v1_1, v1_2, v1_3, v1_4, v1_5): (u64, u64, u64, u64, u64, u64) =
+        fm(b1_0, b1_1, b1_2, b1_3, b1_4, b1_5, b2_0, b2_1, b2_2, b2_3, b2_4, b2_5);
+    // real = v0 - v1
+    let (r0, r1, r2, r3, r4, r5): (u64, u64, u64, u64, u64, u64) =
+        fs(v0_0, v0_1, v0_2, v0_3, v0_4, v0_5, v1_0, v1_1, v1_2, v1_3, v1_4, v1_5);
+    // imag = (a1+b1)*(a2+b2) - v0 - v1  (Karatsuba)
+    let (s1_0, s1_1, s1_2, s1_3, s1_4, s1_5): (u64, u64, u64, u64, u64, u64) =
+        fa(a1_0, a1_1, a1_2, a1_3, a1_4, a1_5, b1_0, b1_1, b1_2, b1_3, b1_4, b1_5);
+    let (s2_0, s2_1, s2_2, s2_3, s2_4, s2_5): (u64, u64, u64, u64, u64, u64) =
+        fa(a2_0, a2_1, a2_2, a2_3, a2_4, a2_5, b2_0, b2_1, b2_2, b2_3, b2_4, b2_5);
+    let (i0, i1, i2, i3, i4, i5): (u64, u64, u64, u64, u64, u64) =
+        fm(s1_0, s1_1, s1_2, s1_3, s1_4, s1_5, s2_0, s2_1, s2_2, s2_3, s2_4, s2_5);
+    let (i0, i1, i2, i3, i4, i5): (u64, u64, u64, u64, u64, u64) =
+        fs(i0, i1, i2, i3, i4, i5, v0_0, v0_1, v0_2, v0_3, v0_4, v0_5);
+    let (i0, i1, i2, i3, i4, i5): (u64, u64, u64, u64, u64, u64) =
+        fs(i0, i1, i2, i3, i4, i5, v1_0, v1_1, v1_2, v1_3, v1_4, v1_5);
+    (r0, r1, r2, r3, r4, r5, i0, i1, i2, i3, i4, i5)
+}
+
+// Fp2 add
+fn fp2_add(
+    a1_0: u64, a1_1: u64, a1_2: u64, a1_3: u64, a1_4: u64, a1_5: u64,
+    b1_0: u64, b1_1: u64, b1_2: u64, b1_3: u64, b1_4: u64, b1_5: u64,
+    a2_0: u64, a2_1: u64, a2_2: u64, a2_3: u64, a2_4: u64, a2_5: u64,
+    b2_0: u64, b2_1: u64, b2_2: u64, b2_3: u64, b2_4: u64, b2_5: u64
+) -> (u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64) {
+    let (r0, r1, r2, r3, r4, r5): (u64, u64, u64, u64, u64, u64) =
+        fa(a1_0, a1_1, a1_2, a1_3, a1_4, a1_5, a2_0, a2_1, a2_2, a2_3, a2_4, a2_5);
+    let (i0, i1, i2, i3, i4, i5): (u64, u64, u64, u64, u64, u64) =
+        fa(b1_0, b1_1, b1_2, b1_3, b1_4, b1_5, b2_0, b2_1, b2_2, b2_3, b2_4, b2_5);
+    (r0, r1, r2, r3, r4, r5, i0, i1, i2, i3, i4, i5)
+}
+
+// Fp2 sub
+fn fp2_sub(
+    a1_0: u64, a1_1: u64, a1_2: u64, a1_3: u64, a1_4: u64, a1_5: u64,
+    b1_0: u64, b1_1: u64, b1_2: u64, b1_3: u64, b1_4: u64, b1_5: u64,
+    a2_0: u64, a2_1: u64, a2_2: u64, a2_3: u64, a2_4: u64, a2_5: u64,
+    b2_0: u64, b2_1: u64, b2_2: u64, b2_3: u64, b2_4: u64, b2_5: u64
+) -> (u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64) {
+    let (r0, r1, r2, r3, r4, r5): (u64, u64, u64, u64, u64, u64) =
+        fs(a1_0, a1_1, a1_2, a1_3, a1_4, a1_5, a2_0, a2_1, a2_2, a2_3, a2_4, a2_5);
+    let (i0, i1, i2, i3, i4, i5): (u64, u64, u64, u64, u64, u64) =
+        fs(b1_0, b1_1, b1_2, b1_3, b1_4, b1_5, b2_0, b2_1, b2_2, b2_3, b2_4, b2_5);
+    (r0, r1, r2, r3, r4, r5, i0, i1, i2, i3, i4, i5)
+}
+
+fn main() {
+    // Test 1: (7+11u) * (13+17u) = (7*13 - 11*17) + (7*17 + 11*13)u
+    //       = (91 - 187) + (119 + 143)u = -96 + 262u
+    // -96 mod p, 262
+    let (a0, a1, a2, a3, a4, a5): (u64, u64, u64, u64, u64, u64) = fp_to_mont(7, 0, 0, 0, 0, 0);
+    let (b0, b1, b2, b3, b4, b5): (u64, u64, u64, u64, u64, u64) = fp_to_mont(11, 0, 0, 0, 0, 0);
+    let (c0, c1, c2, c3, c4, c5): (u64, u64, u64, u64, u64, u64) = fp_to_mont(13, 0, 0, 0, 0, 0);
+    let (d0, d1, d2, d3, d4, d5): (u64, u64, u64, u64, u64, u64) = fp_to_mont(17, 0, 0, 0, 0, 0);
+    let (r0, r1, r2, r3, r4, r5, i0, i1, i2, i3, i4, i5):
+        (u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64) =
+        fp2_mul(a0, a1, a2, a3, a4, a5, b0, b1, b2, b3, b4, b5,
+                c0, c1, c2, c3, c4, c5, d0, d1, d2, d3, d4, d5);
+    let (r0, r1, r2, r3, r4, r5): (u64, u64, u64, u64, u64, u64) = fp_from_mont(r0, r1, r2, r3, r4, r5);
+    let (i0, i1, i2, i3, i4, i5): (u64, u64, u64, u64, u64, u64) = fp_from_mont(i0, i1, i2, i3, i4, i5);
+    // -96 mod p
+    assert!(fp_eq(r0, r1, r2, r3, r4, r5,
+        0xb9feffffffffaa4b, 0x1eabfffeb153ffff,
+        0x6730d2a0f6b0f624, 0x64774b84f38512bf,
+        0x4b1ba7b6434bacd7, 0x1a0111ea397fe69a));
+    // 262
+    assert!(fp_eq(i0, i1, i2, i3, i4, i5,
+        0x0000000000000106, 0x0000000000000000,
+        0x0000000000000000, 0x0000000000000000,
+        0x0000000000000000, 0x0000000000000000));
+
+    // Test 2: Large Fp2 mul (Gx+Gy*u) * (2Gx+2Gy*u)
+    let (a0, a1, a2, a3, a4, a5): (u64, u64, u64, u64, u64, u64) = fp_to_mont(
+        0xfb3af00adb22c6bb, 0x6c55e83ff97a1aef,
+        0xa14e3a3f171bac58, 0xc3688c4f9774b905,
+        0x2695638c4fa9ac0f, 0x17f1d3a73197d794);
+    let (b0, b1, b2, b3, b4, b5): (u64, u64, u64, u64, u64, u64) = fp_to_mont(
+        0x0caa232946c5e7e1, 0xd03cc744a2888ae4,
+        0x00db18cb2c04b3ed, 0xfcf5e095d5d00af6,
+        0xa09e30ed741d8ae4, 0x08b3f481e3aaa0f1);
+    let (c0, c1, c2, c3, c4, c5): (u64, u64, u64, u64, u64, u64) = fp_to_mont(
+        0xc39a8c5529bf0f4e, 0xe28f75bb8f1c7c42,
+        0x43902d0ac358a62a, 0x9721db3091280125,
+        0x8808c8eb50a9450c, 0x0572cbea904d6746);
+    let (d0, d1, d2, d3, d4, d5): (u64, u64, u64, u64, u64, u64) = fp_to_mont(
+        0xba86881979749d28, 0x4c56d9d4cd16bd1b,
+        0xf73bb9021d5fd76a, 0x22ba3ecb8670e461,
+        0x22fda673779d8e38, 0x166a9d8cabc673a3);
+    let (r0, r1, r2, r3, r4, r5, i0, i1, i2, i3, i4, i5):
+        (u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64) =
+        fp2_mul(a0, a1, a2, a3, a4, a5, b0, b1, b2, b3, b4, b5,
+                c0, c1, c2, c3, c4, c5, d0, d1, d2, d3, d4, d5);
+    let (r0, r1, r2, r3, r4, r5): (u64, u64, u64, u64, u64, u64) = fp_from_mont(r0, r1, r2, r3, r4, r5);
+    let (i0, i1, i2, i3, i4, i5): (u64, u64, u64, u64, u64, u64) = fp_from_mont(i0, i1, i2, i3, i4, i5);
+    assert!(fp_eq(r0, r1, r2, r3, r4, r5,
+        0x655c7f47e800d3bb, 0x2d9eb7e132d55b84,
+        0x3dd8a90da4634577, 0x902becbab27c14b2,
+        0x591190b8ed8d0f8c, 0x12d78e32301b0987));
+    assert!(fp_eq(i0, i1, i2, i3, i4, i5,
+        0x9d9a8519c6a67756, 0xef57e0777e0ac98d,
+        0xbdbbe29f00c62f28, 0xd6fcc027ea9d20ea,
+        0x47f4bde7942d7c0a, 0x0e934ab064628d7e));
+
+    // Test 3: Fp2 square of (Gx+Gy*u)
+    let (r0, r1, r2, r3, r4, r5, i0, i1, i2, i3, i4, i5):
+        (u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64) =
+        fp2_mul(a0, a1, a2, a3, a4, a5, b0, b1, b2, b3, b4, b5,
+                a0, a1, a2, a3, a4, a5, b0, b1, b2, b3, b4, b5);
+    let (r0, r1, r2, r3, r4, r5): (u64, u64, u64, u64, u64, u64) = fp_from_mont(r0, r1, r2, r3, r4, r5);
+    let (i0, i1, i2, i3, i4, i5): (u64, u64, u64, u64, u64, u64) = fp_from_mont(i0, i1, i2, i3, i4, i5);
+    assert!(fp_eq(r0, r1, r2, r3, r4, r5,
+        0xfe8e8310edeb1f23, 0x0103a43c2a9fd00b,
+        0x44c4906de94cda3b, 0xec192d6ca52f1e1b,
+        0x6d0598abf37bf290, 0x044b62a1f2e08563));
+    assert!(fp_eq(i0, i1, i2, i3, i4, i5,
+        0xbbfde8a298c314b1, 0xe84be5e49f214683,
+        0xfb579a9fd20d53fd, 0x51e1905a53776ef4,
+        0x17b2435400826016, 0x0888dc728194a6a1));
+}
