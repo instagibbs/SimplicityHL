@@ -478,6 +478,38 @@ pub(crate) mod tests {
     }
 
     #[test]
+    #[ignore]
+    fn groth16_final_exp() {
+        TestCase::program_file("./examples/groth16/final_exp.simf")
+            .with_witness_values(WitnessValues::default())
+            .assert_run_success();
+    }
+
+    #[test]
+    #[ignore]
+    fn groth16_fp() {
+        TestCase::program_file("./examples/groth16/fp.simf")
+            .with_witness_values(WitnessValues::default())
+            .assert_run_success();
+    }
+
+    #[test]
+    #[ignore]
+    fn groth16_pairing() {
+        TestCase::program_file("./examples/groth16/pairing.simf")
+            .with_witness_values(WitnessValues::default())
+            .assert_run_success();
+    }
+
+    #[test]
+    #[ignore]
+    fn groth16_verify() {
+        TestCase::program_file("./examples/groth16/groth16.simf")
+            .with_witness_values(WitnessValues::default())
+            .assert_run_success();
+    }
+
+    #[test]
     fn ctv() {
         TestCase::program_file("./examples/ctv.simf")
             .with_witness_values(WitnessValues::default())
