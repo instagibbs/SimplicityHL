@@ -1009,33 +1009,15 @@ fn ate_pairing(px0: u64, px1: u64, px2: u64, px3: u64, px4: u64, px5: u64, py0: 
 }
 
 fn main() {
-    // G1 generator (affine, Montgomery)
-    let gx0: u64 = 0xfd530c16a87d2838; let gx1: u64 = 0x0b3ecf6776118852;
-    let gx2: u64 = 0xbe3d5ae4ba809e8b; let gx3: u64 = 0x788211b3695fc42e;
-    let gx4: u64 = 0x21f3794b02740ede; let gx5: u64 = 0x17f1d3a73197d794;
-    let gy0: u64 = 0x504e83bfb1a4e3a7; let gy1: u64 = 0xb27a2d5a2b476e58;
-    let gy2: u64 = 0x6d64c02115f85c42; let gy3: u64 = 0x1bf135d8ceb3a1a6;
-    let gy4: u64 = 0x57fce71d3e144ad1; let gy5: u64 = 0x08b3f481e3aaa0f1;
-    let (px0, px1, px2, px3, px4, px5): (u64, u64, u64, u64, u64, u64) = fp_to_mont(gx0, gx1, gx2, gx3, gx4, gx5);
-    let (py0, py1, py2, py3, py4, py5): (u64, u64, u64, u64, u64, u64) = fp_to_mont(gy0, gy1, gy2, gy3, gy4, gy5);
-    // G2 generator (affine, already Montgomery from miller.simf)
-    let qx0: u64 = 0xf5f28fa202940a10; let qx1: u64 = 0xb3f5fb2687b4961a;
-    let qx2: u64 = 0xa1a893b53e2ae580; let qx3: u64 = 0x9894999d1a3caee9;
-    let qx4: u64 = 0x6f67b7631863366b; let qx5: u64 = 0x024aa2b2f08f0a91;
-    let qx6: u64 = 0xd693e8c36676bd09; let qx7: u64 = 0x23c0bf1bc24c6b68;
-    let qx8: u64 = 0x559c8ea6ba8b59a5; let qx9: u64 = 0xf2b18f803a8891a6;
-    let qx10: u64 = 0xfc3e2b36c4ddb56a; let qx11: u64 = 0x13e02b6052719f60;
-    let qy0: u64 = 0x3c075d0611bd8a25; let qy1: u64 = 0x41052c77a58e77bf;
-    let qy2: u64 = 0x7e8b2b79edf6c451; let qy3: u64 = 0x29e18c0437f7b867;
-    let qy4: u64 = 0x66b9d86231110360; let qy5: u64 = 0x0ce5d527727d6e11;
-    let qy6: u64 = 0x86286c6d8d09b02a; let qy7: u64 = 0x9bed4b16f1821acb;
-    let qy8: u64 = 0xbe2f7cdb3c757fb8; let qy9: u64 = 0xf6a71d8ce3ba5af4;
-    let qy10: u64 = 0xd4be39c8d76a7538; let qy11: u64 = 0x0606c4a02ea734cc;
-    let (qx0, qx1, qx2, qx3, qx4, qx5): (u64, u64, u64, u64, u64, u64) = fp_to_mont(qx0, qx1, qx2, qx3, qx4, qx5);
-    let (qx6, qx7, qx8, qx9, qx10, qx11): (u64, u64, u64, u64, u64, u64) = fp_to_mont(qx6, qx7, qx8, qx9, qx10, qx11);
-    let (qy0, qy1, qy2, qy3, qy4, qy5): (u64, u64, u64, u64, u64, u64) = fp_to_mont(qy0, qy1, qy2, qy3, qy4, qy5);
-    let (qy6, qy7, qy8, qy9, qy10, qy11): (u64, u64, u64, u64, u64, u64) = fp_to_mont(qy6, qy7, qy8, qy9, qy10, qy11);
-    let (r0, r1, r2, r3, r4, r5, r6, r7, r8, r9, r10, r11, r12, r13, r14, r15, r16, r17, r18, r19, r20, r21, r22, r23, r24, r25, r26, r27, r28, r29, r30, r31, r32, r33, r34, r35, r36, r37, r38, r39, r40, r41, r42, r43, r44, r45, r46, r47, r48, r49, r50, r51, r52, r53, r54, r55, r56, r57, r58, r59, r60, r61, r62, r63, r64, r65, r66, r67, r68, r69, r70, r71): (u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64) = ate_pairing(px0, px1, px2, px3, px4, px5, py0, py1, py2, py3, py4, py5, qx0, qx1, qx2, qx3, qx4, qx5, qx6, qx7, qx8, qx9, qx10, qx11, qy0, qy1, qy2, qy3, qy4, qy5, qy6, qy7, qy8, qy9, qy10, qy11);
-    // Verify pairing(G1, G2) c0.c0.re matches py_ecc
-    assert!(fp_eq(r0, r1, r2, r3, r4, r5, 0x1db6450849b1263f, 0xedb8c5b5ad6d4bea, 0x677c9269f6aa790a, 0xf7e2b22211800882, 0x6aa8423063d67b0b, 0x0c3a39efac585269));
+    // G1 generator (affine, standard form)
+    let (px0, px1, px2, px3, px4, px5): (u64, u64, u64, u64, u64, u64) = fp_to_mont(0xfb3af00adb22c6bb, 0x6c55e83ff97a1aef, 0xa14e3a3f171bac58, 0xc3688c4f9774b905, 0x2695638c4fa9ac0f, 0x17f1d3a73197d794);
+    let (py0, py1, py2, py3, py4, py5): (u64, u64, u64, u64, u64, u64) = fp_to_mont(0x0caa232946c5e7e1, 0xd03cc744a2888ae4, 0x00db18cb2c04b3ed, 0xfcf5e095d5d00af6, 0xa09e30ed741d8ae4, 0x08b3f481e3aaa0f1);
+    // G2 generator (affine, standard form)
+    let (qx0, qx1, qx2, qx3, qx4, qx5): (u64, u64, u64, u64, u64, u64) = fp_to_mont(0xd48056c8c121bdb8, 0x0bac0326a805bbef, 0xb4510b647ae3d177, 0xc6e47ad4fa403b02, 0x260805272dc51051, 0x024aa2b2f08f0a91);
+    let (qx6, qx7, qx8, qx9, qx10, qx11): (u64, u64, u64, u64, u64, u64) = fp_to_mont(0xe5ac7d055d042b7e, 0x334cf11213945d57, 0xb5da61bbdc7f5049, 0x596bd0d09920b61a, 0x7dacd3a088274f65, 0x13e02b6052719f60);
+    let (qy0, qy1, qy2, qy3, qy4, qy5): (u64, u64, u64, u64, u64, u64) = fp_to_mont(0xe193548608b82801, 0x923ac9cc3baca289, 0x6d429a695160d12c, 0xadfd9baa8cbdd3a7, 0x8cc9cdc6da2e351a, 0x0ce5d527727d6e11);
+    let (qy6, qy7, qy8, qy9, qy10, qy11): (u64, u64, u64, u64, u64, u64) = fp_to_mont(0xaaa9075ff05f79be, 0x3f370d275cec1da1, 0x267492ab572e99ab, 0xcb3e287e85a763af, 0x32acd2b02bc28b99, 0x0606c4a02ea734cc);
+    // Verify miller loop f_num matches miller.simf reference
+    let (fn0, fn1, fn2, fn3, fn4, fn5, fn6, fn7, fn8, fn9, fn10, fn11, fn12, fn13, fn14, fn15, fn16, fn17, fn18, fn19, fn20, fn21, fn22, fn23, fn24, fn25, fn26, fn27, fn28, fn29, fn30, fn31, fn32, fn33, fn34, fn35, fn36, fn37, fn38, fn39, fn40, fn41, fn42, fn43, fn44, fn45, fn46, fn47, fn48, fn49, fn50, fn51, fn52, fn53, fn54, fn55, fn56, fn57, fn58, fn59, fn60, fn61, fn62, fn63, fn64, fn65, fn66, fn67, fn68, fn69, fn70, fn71, dn0, dn1, dn2, dn3, dn4, dn5, dn6, dn7, dn8, dn9, dn10, dn11, dn12, dn13, dn14, dn15, dn16, dn17, dn18, dn19, dn20, dn21, dn22, dn23, dn24, dn25, dn26, dn27, dn28, dn29, dn30, dn31, dn32, dn33, dn34, dn35, dn36, dn37, dn38, dn39, dn40, dn41, dn42, dn43, dn44, dn45, dn46, dn47, dn48, dn49, dn50, dn51, dn52, dn53, dn54, dn55, dn56, dn57, dn58, dn59, dn60, dn61, dn62, dn63, dn64, dn65, dn66, dn67, dn68, dn69, dn70, dn71): (u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64) = miller_loop(px0, px1, px2, px3, px4, px5, py0, py1, py2, py3, py4, py5, qx0, qx1, qx2, qx3, qx4, qx5, qx6, qx7, qx8, qx9, qx10, qx11, qy0, qy1, qy2, qy3, qy4, qy5, qy6, qy7, qy8, qy9, qy10, qy11);
+    assert!(fp_eq(fn0, fn1, fn2, fn3, fn4, fn5, 0x7a6bb05d9b424092, 0x8ba4c67545dbc810, 0x9a9d695077f3f85b, 0x50bc12d4d7d70fb1, 0xb1632606987bb86d, 0x01b45efada44e585));
 }
