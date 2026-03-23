@@ -320,6 +320,14 @@ impl CustomFunction {
         &self.body
     }
 
+    /// Return a unique identifier for this function's body.
+    ///
+    /// Uses the `Arc` data pointer, so all calls to the same function
+    /// share the same identifier.
+    pub fn body_id(&self) -> usize {
+        Arc::as_ptr(&self.body) as usize
+    }
+
     /// Return a pattern for the parameters of the function.
     pub fn params_pattern(&self) -> Pattern {
         Pattern::tuple(

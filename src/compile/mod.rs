@@ -2,6 +2,9 @@
 
 mod builtins;
 
+use std::cell::RefCell;
+use std::collections::HashMap;
+use std::rc::Rc;
 use std::sync::Arc;
 
 use either::Either;
@@ -12,8 +15,8 @@ use simplicity::{types, Cmr, FailEntropy};
 use self::builtins::array_fold;
 use crate::array::{BTreeSlice, Partition};
 use crate::ast::{
-    Call, CallName, Expression, ExpressionInner, Match, Program, SingleExpression,
-    SingleExpressionInner, Statement,
+    Call, CallName, CustomFunction, Expression, ExpressionInner, Match, Program,
+    SingleExpression, SingleExpressionInner, Statement,
 };
 use crate::debug::CallTracker;
 use crate::error::{Error, RichError, Span, WithSpan};
@@ -72,6 +75,11 @@ struct Scope<'brand> {
     /// Values for parameters inside the SimplicityHL program.
     arguments: Arguments,
     include_debug_symbols: bool,
+    /// Cache of compiled function bodies, keyed by the `Arc<Expression>`
+    /// data pointer of the function body. Functions are pure (no closures),
+    /// so the compiled body is identical at every call site.
+    /// Shared via `Rc<RefCell>` so child scopes populate the same cache.
+    function_cache: Rc<RefCell<HashMap<usize, PairBuilder<ProgNode<'brand>>>>>,
 }
 
 impl<'brand> Scope<'brand> {
@@ -95,6 +103,7 @@ impl<'brand> Scope<'brand> {
             call_tracker,
             arguments,
             include_debug_symbols,
+            function_cache: Rc::new(RefCell::new(HashMap::new())),
         }
     }
 
@@ -106,6 +115,7 @@ impl<'brand> Scope<'brand> {
             call_tracker: Arc::clone(&self.call_tracker),
             arguments: self.arguments.clone(),
             include_debug_symbols: self.include_debug_symbols,
+            function_cache: Rc::clone(&self.function_cache),
         }
     }
 
@@ -219,6 +229,26 @@ impl<'brand> Scope<'brand> {
         self.arguments
             .get(name)
             .expect("Precondition: Arguments are consistent with parameters")
+    }
+
+    /// Compile a function body, returning a cached result if available.
+    ///
+    /// Functions are pure (no closures over mutable state), so the
+    /// compiled Simplicity DAG for a given function body is identical
+    /// at every call site. The `Arc<Expression>` pointer serves as
+    /// a unique key per function definition.
+    fn compile_function(
+        &mut self,
+        function: &CustomFunction,
+    ) -> Result<PairBuilder<ProgNode<'brand>>, RichError> {
+        let key = function.body_id();
+        if let Some(cached) = self.function_cache.borrow().get(&key) {
+            return Ok(cached.clone());
+        }
+        let mut function_scope = self.child(function.params_pattern());
+        let body = function.body().compile(&mut function_scope)?;
+        self.function_cache.borrow_mut().insert(key, body.clone());
+        Ok(body)
     }
 }
 
@@ -431,25 +461,21 @@ impl Call {
                 Ok(args)
             }
             CallName::Custom(function) => {
-                let mut function_scope = scope.child(function.params_pattern());
-                let body = function.body().compile(&mut function_scope)?;
+                let body = scope.compile_function(function)?;
                 args.comp(&body).with_span(self)
             }
             CallName::Fold(function, bound) => {
-                let mut function_scope = scope.child(function.params_pattern());
-                let body = function.body().compile(&mut function_scope)?;
+                let body = scope.compile_function(function)?;
                 let fold_body = list_fold(*bound, body.as_ref()).with_span(self)?;
                 args.comp(&fold_body).with_span(self)
             }
             CallName::ArrayFold(function, size) => {
-                let mut function_scope = scope.child(function.params_pattern());
-                let body = function.body().compile(&mut function_scope)?;
+                let body = scope.compile_function(function)?;
                 let fold_body = array_fold(*size, body.as_ref()).with_span(self)?;
                 args.comp(&fold_body).with_span(self)
             }
             CallName::ForWhile(function, bit_width) => {
-                let mut function_scope = scope.child(function.params_pattern());
-                let body = function.body().compile(&mut function_scope)?;
+                let body = scope.compile_function(function)?;
                 let fold_body = for_while(*bit_width, body).with_span(self)?;
                 args.comp(&fold_body).with_span(self)
             }
