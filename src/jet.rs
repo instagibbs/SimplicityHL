@@ -393,6 +393,10 @@ pub fn source_type(jet: Elements) -> Vec<AliasedType> {
         | Elements::FeIsOdd
         | Elements::Swu => vec![Fe.into()],
         Elements::FeAdd | Elements::FeMultiply => vec![Fe.into(), Fe.into()],
+        Elements::Bls12381FpAdd
+        | Elements::Bls12381FpSubtract
+        | Elements::Bls12381FpMultiply => vec![Fp384.into(), Fp384.into()],
+        Elements::Bls12381FpNegate | Elements::Bls12381FpSquare => vec![Fp384.into()],
         Elements::HashToCurve => vec![U256.into()],
         /*
          * Digital signatures
@@ -903,6 +907,11 @@ pub fn target_type(jet: Elements) -> AliasedType {
         | Elements::FeMultiply
         | Elements::FeMultiplyBeta
         | Elements::FeInvert => Fe.into(),
+        Elements::Bls12381FpAdd
+        | Elements::Bls12381FpSubtract
+        | Elements::Bls12381FpMultiply
+        | Elements::Bls12381FpNegate
+        | Elements::Bls12381FpSquare => Fp384.into(),
         Elements::FeSquareRoot => option(Fe),
         /*
          * Digital signatures

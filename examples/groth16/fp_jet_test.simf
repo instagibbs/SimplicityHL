@@ -1,0 +1,59 @@
+fn main() {
+    let one: ((u64, u64), ((u64, u64), (u64, u64))) = ((0x760900000002fffd, 0xebf4000bc40c0002), ((0x5f48985753c758ba, 0x77ce585370525745), (0x5c071a97a256ec6d, 0x15f65ec3fa80e493)));
+    let two: ((u64, u64), ((u64, u64), (u64, u64))) = ((0x321300000006554f, 0xb93c0018d6c40005), ((0x57605e0db0ddbb51, 0x8b256521ed1f9bcb), (0x6cf28d7901622c03, 0x11ebab9dbb81e28c)));
+
+    // 1 + 1 = 2
+    let r: ((u64, u64), ((u64, u64), (u64, u64))) = jet::bls12_381_fp_add(one, one);
+    let ((r0, r1), ((r2, r3), (r4, r5))): ((u64, u64), ((u64, u64), (u64, u64))) = r;
+    let ((t0, t1), ((t2, t3), (t4, t5))): ((u64, u64), ((u64, u64), (u64, u64))) = two;
+    assert!(jet::eq_64(r0, t0));
+    assert!(jet::eq_64(r1, t1));
+    assert!(jet::eq_64(r2, t2));
+    assert!(jet::eq_64(r3, t3));
+    assert!(jet::eq_64(r4, t4));
+    assert!(jet::eq_64(r5, t5));
+
+    // 2 - 1 = 1
+    let s: ((u64, u64), ((u64, u64), (u64, u64))) = jet::bls12_381_fp_subtract(two, one);
+    let ((s0, s1), ((s2, s3), (s4, s5))): ((u64, u64), ((u64, u64), (u64, u64))) = s;
+    let ((o0, o1), ((o2, o3), (o4, o5))): ((u64, u64), ((u64, u64), (u64, u64))) = one;
+    assert!(jet::eq_64(s0, o0));
+    assert!(jet::eq_64(s1, o1));
+    assert!(jet::eq_64(s2, o2));
+    assert!(jet::eq_64(s3, o3));
+    assert!(jet::eq_64(s4, o4));
+    assert!(jet::eq_64(s5, o5));
+
+    // 1 * 1 = 1
+    let m: ((u64, u64), ((u64, u64), (u64, u64))) = jet::bls12_381_fp_multiply(one, one);
+    let ((m0, m1), ((m2, m3), (m4, m5))): ((u64, u64), ((u64, u64), (u64, u64))) = m;
+    assert!(jet::eq_64(m0, o0));
+    assert!(jet::eq_64(m1, o1));
+    assert!(jet::eq_64(m2, o2));
+    assert!(jet::eq_64(m3, o3));
+    assert!(jet::eq_64(m4, o4));
+    assert!(jet::eq_64(m5, o5));
+
+    // negate(1) + 1 = 0
+    let neg_one: ((u64, u64), ((u64, u64), (u64, u64))) = jet::bls12_381_fp_negate(one);
+    let z: ((u64, u64), ((u64, u64), (u64, u64))) = jet::bls12_381_fp_add(neg_one, one);
+    let ((z0, z1), ((z2, z3), (z4, z5))): ((u64, u64), ((u64, u64), (u64, u64))) = z;
+    assert!(jet::eq_64(z0, 0));
+    assert!(jet::eq_64(z1, 0));
+    assert!(jet::eq_64(z2, 0));
+    assert!(jet::eq_64(z3, 0));
+    assert!(jet::eq_64(z4, 0));
+    assert!(jet::eq_64(z5, 0));
+
+    // square(2) = 2 * 2
+    let q: ((u64, u64), ((u64, u64), (u64, u64))) = jet::bls12_381_fp_square(two);
+    let ((q0, q1), ((q2, q3), (q4, q5))): ((u64, u64), ((u64, u64), (u64, u64))) = q;
+    let p: ((u64, u64), ((u64, u64), (u64, u64))) = jet::bls12_381_fp_multiply(two, two);
+    let ((p0, p1), ((p2, p3), (p4, p5))): ((u64, u64), ((u64, u64), (u64, u64))) = p;
+    assert!(jet::eq_64(q0, p0));
+    assert!(jet::eq_64(q1, p1));
+    assert!(jet::eq_64(q2, p2));
+    assert!(jet::eq_64(q3, p3));
+    assert!(jet::eq_64(q4, p4));
+    assert!(jet::eq_64(q5, p5));
+}

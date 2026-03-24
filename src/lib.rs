@@ -494,6 +494,13 @@ pub(crate) mod tests {
     }
 
     #[test]
+    fn groth16_fp_jet_test() {
+        TestCase::program_file("./examples/groth16/fp_jet_test.simf")
+            .with_witness_values(WitnessValues::default())
+            .assert_run_success();
+    }
+
+    #[test]
     #[ignore]
     fn groth16_pairing() {
         TestCase::program_file("./examples/groth16/pairing.simf")

@@ -529,6 +529,7 @@ pub enum BuiltinAlias {
     ExplicitNonce,
     Nonce,
     TokenAmount1,
+    Fp384,
 }
 
 impl AliasedType {
@@ -820,6 +821,13 @@ impl BuiltinAlias {
             B::Pubkey | B::Message | B::Scalar | B::Fe | B::ExplicitAsset | B::ExplicitNonce => {
                 U256.into()
             }
+            B::Fp384 => ResolvedType::tuple([
+                ResolvedType::tuple([U64.into(), U64.into()]),
+                ResolvedType::tuple([
+                    ResolvedType::tuple([U64.into(), U64.into()]),
+                    ResolvedType::tuple([U64.into(), U64.into()]),
+                ]),
+            ]),
             B::Message64 | B::Signature => ResolvedType::array(U8.into(), 64),
             B::Ge => ResolvedType::tuple([U256.into(), U256.into()]),
             B::Gej => {
@@ -856,6 +864,7 @@ impl fmt::Display for BuiltinAlias {
             BuiltinAlias::Signature => f.write_str("Signature"),
             BuiltinAlias::Scalar => f.write_str("Scalar"),
             BuiltinAlias::Fe => f.write_str("Fe"),
+            BuiltinAlias::Fp384 => f.write_str("Fp384"),
             BuiltinAlias::Ge => f.write_str("Ge"),
             BuiltinAlias::Gej => f.write_str("Gej"),
             BuiltinAlias::Point => f.write_str("Point"),
@@ -889,6 +898,7 @@ impl FromStr for BuiltinAlias {
             "Signature" => Ok(BuiltinAlias::Signature),
             "Scalar" => Ok(BuiltinAlias::Scalar),
             "Fe" => Ok(BuiltinAlias::Fe),
+            "Fp384" => Ok(BuiltinAlias::Fp384),
             "Ge" => Ok(BuiltinAlias::Ge),
             "Gej" => Ok(BuiltinAlias::Gej),
             "Point" => Ok(BuiltinAlias::Point),
