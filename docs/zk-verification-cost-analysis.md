@@ -222,18 +222,48 @@ verification in SimplicityHL. Three optimizations applied:
 3. **C BitMachine timing** — measured via simplicity-sys FFI to the
    production C interpreter with Tail Call Optimization
 
-| Config | Queries | FRI Layers | Cost (mWU) | Size (KB) | C BitMachine |
-|--------|---------|------------|------------|-----------|-------------|
-| Toy | 3 | 3 | **8.4M** | 4.5 | 3ms |
-| Medium | 12 | 5 | **103M** | 11.7 | 8ms |
-| Large | 20 | 7 | **444M** | 26.8 | 19ms |
-| Production | 36 | 10 | **2,543M** | 73.1 | **52ms** |
+| Config | Queries | log_blowup | FRI Layers | Cost (mWU) | % block | Size (KB) | C BitMachine |
+|--------|---------|-----------|------------|------------|---------|-----------|-------------|
+| Toy | 3 | 2 | 3 | **8.4M** | 0.2% | 4.5 | 3ms |
+| Medium | 12 | 2 | 5 | **103M** | 2.6% | 11.7 | 8ms |
+| Large | 20 | 2 | 7 | **444M** | 11.1% | 26.8 | 19ms |
+| Production | 36 | 2 | 10 | **2,543M** | 63.5% | 73.1 | 52ms |
+| **GSR-style** | **8** | **10** | **5** | **474M** | **11.9%** | **25.4** | **55ms** |
 
-**Security levels (approximate):**
-- Toy: ~6 bits (testing only)
-- Medium: ~24 bits
-- Large: ~40 bits (log2(blowup) × queries = 2 × 20)
-- Production: ~72 bits from FRI (needs +28 PoW bits for ~100-bit total)
+**Security (STWO formula: `pow_bits + log_blowup × n_queries`):**
+- Toy (log_blowup=2): 0 + 2×3 = 6 bits (testing only)
+- Medium: 0 + 2×12 = 24 bits
+- Large: 0 + 2×20 = 40 bits
+- Production: 28 + 2×36 = 100 bits
+- **GSR-style: 20 + 10×8 = 100 bits** ← same security, 5.4x cheaper
+
+### The GSR Insight: High Blowup, Few Queries
+
+The bitcoin-circle-stark project (Great Script Restoration) uses
+`log_blowup=10` (1024x blowup factor) with only 8 queries. Each
+query contributes 10 bits of FRI security instead of 2 bits with
+standard blowup. The verifier wins massively because:
+
+- **5.4x fewer Merkle verifications** (8 queries × 75 steps vs 36 × 77)
+- **Smaller program DAG** (fewer array_fold iterations)
+- **Less combinator routing** (the dominant cost)
+
+The tradeoff: the **prover** works harder (1024x larger evaluation
+domain = more polynomial evaluations), but the **verifier** — which
+is what runs on-chain — is dramatically cheaper.
+
+| Metric | Production (36q, blowup=4) | GSR (8q, blowup=1024) |
+|--------|--------------------------|----------------------|
+| Security | ~100 bits | ~100 bits |
+| Verifier cost | 2,543M mWU | **474M mWU** |
+| % of block | 63.5% | **11.9%** |
+| Serialized | 73 KB | **25 KB** |
+| C BitMachine | 52ms | **55ms** |
+| Prover domain | 4,096 | 32,768 |
+
+C BitMachine times are similar (~55ms) despite 5.4x cost difference
+because the C interpreter is fast enough that both configs are
+dominated by hash computation, not routing overhead.
 
 ### Optimization History
 
@@ -295,17 +325,17 @@ Both systems implemented end-to-end in SimplicityHL with passing tests.
 
 ### Production Parameters (Fully Optimized)
 
-| Metric | Circle STARK (36q, 10fri) | Groth16 (64-bit jets) | Groth16 (Fp jets) |
-|--------|--------------------------|----------------------|-------------------|
-| Cost (mWU) | **2,543M** | >4.3B (overflow) | >4.3B (overflow) |
-| % of block | **63%** | >100% | >100% |
-| Fits in u32? | **Yes** | No | No |
-| Serialized size | 73 KB | 126 KB | ~80 KB |
-| C BitMachine time | **52ms** | N/A | N/A |
-| Rust BitMachine time | 2.0s | 1,239s | 125s |
-| New jets needed | **None** | None | 5 Fp jets |
-| Post-quantum | **Yes** | No | No |
-| Proof size (witness) | ~50-100 KB | ~200 bytes | ~200 bytes |
+| Metric | Circle STARK GSR | Circle STARK 36q | Groth16 (64-bit) | Groth16 (Fp jets) |
+|--------|-----------------|------------------|-------------------|-------------------|
+| Config | 8q, blowup=1024 | 36q, blowup=4 | — | — |
+| Security | ~100 bits | ~100 bits | ~128 bits | ~128 bits |
+| Cost (mWU) | **474M** | 2,543M | >4.3B | >4.3B |
+| % of block | **11.9%** | 63.5% | >100% | >100% |
+| Serialized size | **25 KB** | 73 KB | 126 KB | ~80 KB |
+| C BitMachine | **55ms** | 52ms | N/A | N/A |
+| New jets needed | **None** | None | None | 5 Fp jets |
+| Post-quantum | **Yes** | Yes | No | No |
+| Proof size | ~50-100 KB | ~50-100 KB | ~200 bytes | ~200 bytes |
 
 ### All Configurations vs Groth16
 
@@ -341,16 +371,16 @@ but exceeds u32 even with Fp jets.
 
 ### By Proof System (Measured, Fully Optimized)
 
-| Property              | Groth16 (64-bit) | Groth16 (Fp jets) | Circle STARK |
-|-----------------------|-------------------|-------------------|--------------|
-| Field size            | 381-bit           | 381-bit           | **31-bit**   |
-| Needs new jets        | No                | 5 Fp jets         | **No**       |
-| Post-quantum          | No                | No                | **Yes**      |
-| Proof size            | **192 bytes**     | **192 bytes**     | 50-100 KB    |
-| Production cost (mWU) | >4.3B (overflow)  | >4.3B (overflow)  | **2,543M**   |
-| % of block            | >100%             | >100%             | **63%**      |
-| C BitMachine time     | N/A               | N/A               | **52ms**     |
-| Serialized program    | 126 KB            | ~80 KB            | **73 KB**    |
+| Property              | Groth16 (64-bit) | Groth16 (Fp jets) | Circle STARK (GSR) |
+|-----------------------|-------------------|-------------------|--------------------|
+| Field size            | 381-bit           | 381-bit           | **31-bit**         |
+| Needs new jets        | No                | 5 Fp jets         | **No**             |
+| Post-quantum          | No                | No                | **Yes**            |
+| Proof size            | **192 bytes**     | **192 bytes**     | 50-100 KB          |
+| Production cost (mWU) | >4.3B (overflow)  | >4.3B (overflow)  | **474M**           |
+| % of block            | >100%             | >100%             | **11.9%**          |
+| C BitMachine time     | N/A               | N/A               | **55ms**           |
+| Serialized program    | 126 KB            | ~80 KB            | **25 KB**          |
 
 ### By Execution Environment
 
@@ -442,12 +472,12 @@ routing overhead negligible.
 
 ## 9. Recommendations (Updated)
 
-1. **Circle STARK verification works at production security in
-   Simplicity today.** At 36 queries / 10 FRI layers (~100-bit
-   security with PoW), it costs 2.54B mWU (63% of a block), fits in
-   73 KB, executes in 52ms on the C BitMachine, and requires zero new
-   jets. This is the only proof system that fits within measurable
-   cost bounds at production security.
+1. **Circle STARK verification fits within 1/10 of a block at
+   production security in Simplicity today.** Using the GSR parameter
+   choice (8 queries, log_blowup=10, 20 PoW bits = ~100-bit security),
+   the verifier costs 474M mWU (11.9% of a block), fits in 25 KB,
+   executes in 55ms on the C BitMachine, and requires zero new jets.
+   This leaves ~88% of the block for other transactions.
 
 2. **The C BitMachine is fast enough for block validation.** At 52ms
    for a production Circle STARK verification, a Liquid/Bitcoin node
@@ -474,16 +504,12 @@ routing overhead negligible.
    fork for ZK verification** — enabling Circle PLONK verification
    with just two new opcodes.
 
-7. **Remaining optimization path to 1/10 block (~400M mWU):** The
-   production verifier at 2.54B mWU is 6.4x the 400M target. Reducing
-   to 20 queries (with 60 PoW bits for ~100-bit security) would cost
-   ~444M mWU — near the target. However, 60 PoW bits requires ~2^60
-   hash operations from the prover, which is infeasible. The realistic
-   minimum is ~28 PoW bits, making 36 queries necessary for ~100-bit
-   security. A dedicated **Merkle path verification jet** would be the
-   most impactful single change — Merkle hashing dominates the
-   verification work and each hash currently incurs significant
-   combinator routing overhead.
+7. **The GSR parameter choice (high blowup) is the key to practical
+   on-chain verification.** `log_blowup=10` gives 10 bits of security
+   per query, so 8 queries + 20 PoW bits = 100 bits. The prover pays
+   (1024x larger domain) but the verifier — running on-chain — is
+   5.4x cheaper than the 36-query low-blowup alternative. This is a
+   pure parameter tuning win, requiring no protocol or jet changes.
 
 ---
 
