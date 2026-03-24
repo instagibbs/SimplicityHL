@@ -211,19 +211,23 @@ multiply. The extension field QM31 (quartic, ~124-bit security) costs
 No new jets needed. Everything uses existing SHA-256 and 32/64-bit
 arithmetic jets.
 
-### Measured Benchmarks (Optimized)
+### Measured Benchmarks (Fully Optimized)
 
 All configurations generate real proofs and pass end-to-end
-verification in SimplicityHL. The verifier uses precomputed twiddle
-factor inverses — all `m31_inv` calls have been eliminated, leaving
-only straight-line arithmetic and SHA-256 hashing.
+verification in SimplicityHL. Three optimizations applied:
 
-| Config | Queries | FRI Layers | Domain | Cost (mWU) | Size (KB) | Cells (KB) | Exec Time |
-|--------|---------|------------|--------|------------|-----------|------------|-----------|
-| Toy | 3 | 3 | 32 | **4.3M** | 5.5 | 94 | 0.6s |
-| Medium | 12 | 5 | 128 | **74.6M** | 25.9 | 3,494 | 1.7s |
-| Large | 20 | 7 | 512 | **407M** | 64.2 | 22,166 | 4.5s |
-| Production | 36 | 10 | 4096 | **3,285M** | 187.9 | 192,459 | 35s |
+1. **Precomputed twiddle inverses** — eliminates all `m31_inv` calls
+2. **`array_fold` over queries** — fold function compiled once, reused
+   for all queries via Simplicity's function body cache
+3. **C BitMachine timing** — measured via simplicity-sys FFI to the
+   production C interpreter with Tail Call Optimization
+
+| Config | Queries | FRI Layers | Cost (mWU) | Size (KB) | C BitMachine |
+|--------|---------|------------|------------|-----------|-------------|
+| Toy | 3 | 3 | **8.4M** | 4.5 | 3ms |
+| Medium | 12 | 5 | **103M** | 11.7 | 8ms |
+| Large | 20 | 7 | **444M** | 26.8 | 19ms |
+| Production | 36 | 10 | **2,543M** | 73.1 | **52ms** |
 
 **Security levels (approximate):**
 - Toy: ~6 bits (testing only)
@@ -231,41 +235,57 @@ only straight-line arithmetic and SHA-256 hashing.
 - Large: ~40 bits (log2(blowup) × queries = 2 × 20)
 - Production: ~72 bits from FRI (needs +28 PoW bits for ~100-bit total)
 
-**Production fits within u32 cost limit** (3.29B < 4.295B max).
+### Optimization History
 
-### Optimization Applied: Precomputed Twiddle Inverses
+Three rounds of optimization, each building on the previous:
 
-The original `ibutterfly` computed `m31_inv(2 * twiddle)` at runtime,
-requiring a 30-iteration square-and-multiply loop per call (360 calls
-at production). Precomputing these in the Python generator and
-embedding them as constants gave a consistent ~30% cost reduction:
+| Version | Production Cost | Production Size | C Time | Key Change |
+|---------|----------------|-----------------|--------|------------|
+| Initial (m31_inv at runtime) | >4.3B (overflow) | 291 KB | ~250ms | Baseline |
+| + Precomputed twiddles | 3,285M | 188 KB | 148ms | -30% cost, fits u32 |
+| + array_fold queries | **2,543M** | **73 KB** | **52ms** | -23% cost, -61% size |
 
-| Config | Before (mWU) | After (mWU) | Reduction |
-|--------|-------------|-------------|-----------|
-| Toy | 5.9M | 4.3M | -26% |
-| Medium | 107M | 74.6M | -30% |
-| Large | 577M | 407M | -29% |
-| Production | >4.3B (overflow) | **3,285M** | **Now fits** |
+**Total reduction from baseline: ~40% cost, ~75% size.**
 
-This also removed all `for_while` loops from the verifier — every
-operation is now straight-line code.
+The `array_fold` approach avoids the super-linear cost explosion seen
+with full unrolling. In the unrolled version, each additional query
+added increasing marginal cost (180M mWU/query at 36 queries) due to
+deeper combinator DAGs. With `array_fold`, the fold function body is
+compiled once and the marginal cost per query is constant.
 
-### Cost Breakdown (Production, Optimized)
+### Approaches Tested and Rejected
 
-The remaining costs are:
+**Witness-based proof data:** Moving Merkle siblings from program
+constants to witness values was tested and found to increase cost at
+every configuration (e.g., production: 3.82B vs 3.29B mWU). Witness
+nodes cost `100 + bitwidth` mWU — the same as constant nodes — but
+the witness loading boilerplate adds combinator overhead.
 
-1. **SHA-256 Merkle verification** — 2,772 hash operations (36 queries
-   × average ~77 Merkle steps across trace + 10 FRI layers). This is
-   now the dominant cost.
+### Cost Composition
 
-2. **QM31 arithmetic in FRI folds** — 360 fold operations, each doing
-   2 qm31_scale + 1 qm31_mul + adds ≈ ~55 jets per fold.
+The dominant cost is **combinator routing** — threading data through
+Simplicity's comp/pair/take/drop nodes. Actual computation (SHA-256
+hashing, M31 arithmetic) accounts for ~1-2% of total mWU cost. The
+`array_fold` optimization reduces routing by sharing the fold function
+DAG across all queries.
 
-3. **Fiat-Shamir channel** — ~50 SHA-256 hashes for squeezing
-   challenges and query indices.
+### C BitMachine vs Rust BitMachine
 
-4. **Combinator routing overhead** — the 4096-line unrolled program
-   creates significant DAG routing overhead (192 MB of cells).
+The C BitMachine (with TCO) from simplicity-sys is dramatically
+faster than the Rust interpreter, with the gap widening for larger
+programs:
+
+| Config | Rust | C | Speedup |
+|--------|------|---|---------|
+| Toy | 8ms | 3ms | 2.8x |
+| Medium | 71ms | 8ms | 8.5x |
+| Large | 330ms | 19ms | 17.6x |
+| Production | 2.0s | **52ms** | **38x** |
+
+The C implementation's TCO eliminates frame allocation overhead for
+tail calls, and its gap-buffer memory model provides better cache
+locality for large programs. The 52ms production time is well within
+block validation budgets.
 
 ---
 
@@ -273,16 +293,16 @@ The remaining costs are:
 
 Both systems implemented end-to-end in SimplicityHL with passing tests.
 
-### Production Parameters (Optimized)
+### Production Parameters (Fully Optimized)
 
 | Metric | Circle STARK (36q, 10fri) | Groth16 (64-bit jets) | Groth16 (Fp jets) |
 |--------|--------------------------|----------------------|-------------------|
-| Cost (mWU) | **3,285M** | >4.3B (overflow) | >4.3B (overflow) |
+| Cost (mWU) | **2,543M** | >4.3B (overflow) | >4.3B (overflow) |
+| % of block | **63%** | >100% | >100% |
 | Fits in u32? | **Yes** | No | No |
-| Serialized size | 188 KB | 126 KB | ~80 KB |
-| BitMachine cells | 192 MB | 2.5 MB | ~2 MB |
-| Execution time | **35s** | 1,239s | **125s** |
-| Exec speedup vs Groth16 | **35x** faster | baseline | 10x faster |
+| Serialized size | 73 KB | 126 KB | ~80 KB |
+| C BitMachine time | **52ms** | N/A | N/A |
+| Rust BitMachine time | 2.0s | 1,239s | 125s |
 | New jets needed | **None** | None | 5 Fp jets |
 | Post-quantum | **Yes** | No | No |
 | Proof size (witness) | ~50-100 KB | ~200 bytes | ~200 bytes |
@@ -291,28 +311,35 @@ Both systems implemented end-to-end in SimplicityHL with passing tests.
 
 | Metric | Toy (3q) | Medium (12q) | Large (20q) | Prod (36q) | Groth16 |
 |--------|----------|-------------|-------------|------------|---------|
-| Cost (mWU) | 4.3M | 74.6M | 407M | **3,285M** | >4,295M |
-| Size (KB) | 5.5 | 25.9 | 64.2 | 188 | 126 |
-| Exec time | 0.6s | 1.7s | 4.5s | 35s | 125-1239s |
+| Cost (mWU) | 8.4M | 103M | 444M | **2,543M** | >4,295M |
+| Size (KB) | 4.5 | 11.7 | 26.8 | 73 | 126 |
+| C time | 3ms | 8ms | 19ms | **52ms** | N/A |
 | Fits u32? | Yes | Yes | Yes | **Yes** | **No** |
 
 ### Scaling Behavior
 
-Circle STARK cost scales roughly as `O(queries × fri_layers × avg_merkle_depth)`:
+With `array_fold`, cost scales linearly with query count (shared fold
+function body). The super-linear cost explosion from unrolling is
+eliminated:
 
-```
-Cost ≈ 250K × queries × fri_layers (mWU, optimized)
-```
+| Queries | Unrolled mWU | Fold mWU | Fold Savings |
+|---------|-------------|----------|--------------|
+| 3 | 4.3M | 8.4M | -1.9x (overhead) |
+| 12 | 74.6M | 103M | -1.4x |
+| 20 | 407M | 444M | -1.1x |
+| 36 | 3,285M | **2,543M** | **+23%** |
 
-Groth16 cost is constant regardless of circuit size (always 3 pairings).
-Circle STARK at production security (~100 bits) now fits within u32
-cost bounds. Groth16 does not, even with Fp jets.
+The fold approach breaks even at ~20 queries and wins decisively above
+that. At production (36 queries), it saves 742M mWU and 115 KB.
+
+Groth16 cost is constant regardless of circuit size (always 3 pairings)
+but exceeds u32 even with Fp jets.
 
 ---
 
 ## 7. Comparative Summary
 
-### By Proof System (Measured, Optimized)
+### By Proof System (Measured, Fully Optimized)
 
 | Property              | Groth16 (64-bit) | Groth16 (Fp jets) | Circle STARK |
 |-----------------------|-------------------|-------------------|--------------|
@@ -320,10 +347,10 @@ cost bounds. Groth16 does not, even with Fp jets.
 | Needs new jets        | No                | 5 Fp jets         | **No**       |
 | Post-quantum          | No                | No                | **Yes**      |
 | Proof size            | **192 bytes**     | **192 bytes**     | 50-100 KB    |
-| Production cost (mWU) | >4.3B (overflow)  | >4.3B (overflow)  | **3,285M**   |
-| Fits in u32?          | No                | No                | **Yes**      |
-| Exec time (prod)      | 1,239s            | 125s              | **35s**      |
-| Serialized program    | 126 KB            | ~80 KB            | 188 KB       |
+| Production cost (mWU) | >4.3B (overflow)  | >4.3B (overflow)  | **2,543M**   |
+| % of block            | >100%             | >100%             | **63%**      |
+| C BitMachine time     | N/A               | N/A               | **52ms**     |
+| Serialized program    | 126 KB            | ~80 KB            | **73 KB**    |
 
 ### By Execution Environment
 
@@ -378,8 +405,29 @@ make Groth16 fit in a block.
 - SHA-256 Merkle verification uses native `jet::sha_256_ctx_8_*` jets.
 - The Fiat-Shamir channel is just SHA-256 hashing.
 - No new consensus changes needed for Simplicity.
-- Precomputing twiddle inverses (a code generation optimization, not a
-  protocol change) brought production within u32 cost bounds.
+- Precomputing twiddle inverses (code generation optimization) brought
+  production within u32 cost bounds.
+- `array_fold` with cached function bodies avoids the super-linear cost
+  explosion that plagues large unrolled programs.
+
+### The C BitMachine Is Production-Ready
+
+The Rust BitMachine gives misleading performance numbers. The C
+implementation (via simplicity-sys FFI) is 38x faster for production
+programs due to TCO and gap-buffer memory management. Always benchmark
+with the C FFI — the Rust interpreter is useful for development but
+not representative of consensus validation time.
+
+### Combinator Routing Dominates Cost
+
+Across all configurations, >98% of mWU cost comes from combinator
+routing (comp/pair/take/drop nodes threading data through the DAG),
+not from actual computation (jets). This means:
+- Program structure matters more than computation efficiency
+- `array_fold` helps by sharing DAG structure across iterations
+- Witness-based data does NOT help (same routing cost per node)
+- A Merkle path jet would help by collapsing many routing-heavy
+  hash operations into a single jet call
 
 ### The BitMachine Routing Bottleneck
 
@@ -396,33 +444,46 @@ routing overhead negligible.
 
 1. **Circle STARK verification works at production security in
    Simplicity today.** At 36 queries / 10 FRI layers (~100-bit
-   security with PoW), it costs 3.29B mWU, fits in 188 KB, and
-   requires zero new jets. This is the only proof system that fits
-   within measurable cost bounds at production security.
+   security with PoW), it costs 2.54B mWU (63% of a block), fits in
+   73 KB, executes in 52ms on the C BitMachine, and requires zero new
+   jets. This is the only proof system that fits within measurable
+   cost bounds at production security.
 
-2. **Groth16 requires pairing-level jets to be practical.** Even with
+2. **The C BitMachine is fast enough for block validation.** At 52ms
+   for a production Circle STARK verification, a Liquid/Bitcoin node
+   can validate these transactions without impacting block processing.
+   The Rust interpreter (2s) is not representative — always benchmark
+   with the C FFI.
+
+3. **`array_fold` is essential for large programs.** Unrolling 36
+   queries caused super-linear cost growth (180M mWU marginal per
+   query). Using `array_fold` with a cached fold function body reduced
+   production cost by 23% and program size by 61%. Witness-based data
+   was tested and rejected (increases cost at every size).
+
+4. **Groth16 requires pairing-level jets to be practical.** Even with
    Fp jets (10x speedup), the cost overflows u32. The data routing
    overhead for 4608-bit Fp12 values is an architectural limit of the
    BitMachine that cannot be solved by field-level jets alone.
 
-3. **The BLS12-381 Groth16 implementation remains valuable as a jet
+5. **The BLS12-381 Groth16 implementation remains valuable as a jet
    specification.** The SimplicityHL code serves as a reference that
    higher-level jets (Fp2, Fp12, pairing) would be validated against.
-   The Fp jet work (commits ccb9d27, a04d6bc) demonstrates the jet
-   integration pattern.
 
-4. **For Bitcoin Script, OP_MUL + OP_CAT is the minimum viable soft
+6. **For Bitcoin Script, OP_MUL + OP_CAT is the minimum viable soft
    fork for ZK verification** — enabling Circle PLONK verification
-   with just two new opcodes. This is the smallest consensus change
-   that unlocks on-chain ZK.
+   with just two new opcodes.
 
-5. **Further optimization opportunities remain.** The production
-   verifier's 188 KB program size and 192 MB cell usage come from
-   fully unrolling 36 queries. Using `for_while` loops or `array_fold`
-   with witness-provided proof data could reduce program size by ~10x,
-   potentially reducing cost further through smaller combinator DAGs.
-   The dominant remaining cost is SHA-256 Merkle hashing (~2,772
-   hash operations).
+7. **Remaining optimization path to 1/10 block (~400M mWU):** The
+   production verifier at 2.54B mWU is 6.4x the 400M target. Reducing
+   to 20 queries (with 60 PoW bits for ~100-bit security) would cost
+   ~444M mWU — near the target. However, 60 PoW bits requires ~2^60
+   hash operations from the prover, which is infeasible. The realistic
+   minimum is ~28 PoW bits, making 36 queries necessary for ~100-bit
+   security. A dedicated **Merkle path verification jet** would be the
+   most impactful single change — Merkle hashing dominates the
+   verification work and each hash currently incurs significant
+   combinator routing overhead.
 
 ---
 
@@ -449,5 +510,6 @@ All code is in the SimplicityHL repository on branch
 - `examples/circle_stark/merkle.simf` — Merkle tree verification
 - `examples/circle_stark/circle.simf` — Circle group operations
 - `examples/circle_stark/fri.simf` — FRI folding
-- `examples/circle_stark/verifier.simf` — Generated end-to-end verifier
-- `examples/circle_stark/gen_vectors.py` — Proof generator (toy/medium/large/production)
+- `examples/circle_stark/verifier.simf` — Generated end-to-end verifier (array_fold)
+- `examples/circle_stark/gen_fold.py` — Proof generator with array_fold (production)
+- `examples/circle_stark/gen_vectors.py` — Proof generator with unrolling (reference)
