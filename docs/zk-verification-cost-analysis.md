@@ -228,7 +228,8 @@ verification in SimplicityHL. Three optimizations applied:
 | Medium | 12 | 2 | 5 | **103M** | 2.6% | 11.7 | 8ms |
 | Large | 20 | 2 | 7 | **444M** | 11.1% | 26.8 | 19ms |
 | Production | 36 | 2 | 10 | **2,543M** | 63.5% | 73.1 | 52ms |
-| **GSR-style** | **8** | **10** | **5** | **474M** | **11.9%** | **25.4** | **55ms** |
+| **GSR (trace=2^4)** | **8** | **10** | **4** | **294M** | **7.3%** | **21** | **24ms** |
+| GSR (trace=2^5) | 8 | 10 | 5 | 474M | 11.9% | 25 | 55ms |
 
 **Security (STWO formula: `pow_bits + log_blowup × n_queries`):**
 - Toy (log_blowup=2): 0 + 2×3 = 6 bits (testing only)
@@ -236,6 +237,10 @@ verification in SimplicityHL. Three optimizations applied:
 - Large: 0 + 2×20 = 40 bits
 - Production: 28 + 2×36 = 100 bits
 - **GSR-style: 20 + 10×8 = 100 bits** ← same security, 5.4x cheaper
+
+Security depends only on `pow_bits + log_blowup × n_queries` — the
+trace size does not affect security. It determines how large a
+computation can be proved (16 rows vs 32 rows vs millions).
 
 ### The GSR Insight: High Blowup, Few Queries
 
@@ -264,6 +269,36 @@ is what runs on-chain — is dramatically cheaper.
 C BitMachine times are similar (~55ms) despite 5.4x cost difference
 because the C interpreter is fast enough that both configs are
 dominated by hash computation, not routing overhead.
+
+### How Verification Cost Scales With Circuit Size
+
+The trace size determines how large a computation the proof covers.
+Security is independent of trace size — only blowup, queries, and PoW
+matter. But larger traces mean deeper Merkle trees and more FRI layers,
+which increases verifier cost.
+
+With GSR parameters (log_blowup=10, 8 queries, 20 PoW bits = 100-bit
+security), verification cost scales with the proved circuit size:
+
+| Trace Rows | Use Case | FRI Layers | Merkle Steps | Est. Cost | % Block |
+|------------|----------|------------|-------------|-----------|---------|
+| 16 | Demo (measured) | 4 | 480 | **294M** | **7.3%** |
+| 32 | Demo (measured) | 5 | 600 | **474M** | **11.9%** |
+| 1,024 | Simple contract | 10 | 1,320 | ~1,000M | ~25% |
+| 32,768 | Medium program | 15 | 2,240 | ~2,100M | ~53% |
+| 1,048,576 | Large program | 20 | 3,360 | ~3,700M | ~92% |
+
+(Rows above 32 are extrapolated — should be measured for accuracy.)
+
+**Key observation:** cost scales as `O(log²(trace_size))` because more
+rows means both more FRI layers AND deeper Merkle trees per layer.
+A 1024-row circuit (enough for a simple smart contract) would cost
+roughly 1/4 of a block. Circuits above ~1M rows approach the block
+limit.
+
+For most practical STARK use cases (proving a hash preimage, a
+signature verification, a simple VM execution), 1K-32K rows suffice.
+These fit comfortably under half a block with the GSR parameters.
 
 ### Optimization History
 
@@ -328,11 +363,12 @@ Both systems implemented end-to-end in SimplicityHL with passing tests.
 | Metric | Circle STARK GSR | Circle STARK 36q | Groth16 (64-bit) | Groth16 (Fp jets) |
 |--------|-----------------|------------------|-------------------|-------------------|
 | Config | 8q, blowup=1024 | 36q, blowup=4 | — | — |
+| Trace | 2^4 (16 rows) | 2^10 (1024 rows) | N/A | N/A |
 | Security | ~100 bits | ~100 bits | ~128 bits | ~128 bits |
-| Cost (mWU) | **474M** | 2,543M | >4.3B | >4.3B |
-| % of block | **11.9%** | 63.5% | >100% | >100% |
-| Serialized size | **25 KB** | 73 KB | 126 KB | ~80 KB |
-| C BitMachine | **55ms** | 52ms | N/A | N/A |
+| Cost (mWU) | **294M** | 2,543M | >4.3B | >4.3B |
+| % of block | **7.3%** | 63.5% | >100% | >100% |
+| Serialized size | **21 KB** | 73 KB | 126 KB | ~80 KB |
+| C BitMachine | **24ms** | 52ms | N/A | N/A |
 | New jets needed | **None** | None | None | 5 Fp jets |
 | Post-quantum | **Yes** | Yes | No | No |
 | Proof size | ~50-100 KB | ~50-100 KB | ~200 bytes | ~200 bytes |
@@ -377,10 +413,10 @@ but exceeds u32 even with Fp jets.
 | Needs new jets        | No                | 5 Fp jets         | **No**             |
 | Post-quantum          | No                | No                | **Yes**            |
 | Proof size            | **192 bytes**     | **192 bytes**     | 50-100 KB          |
-| Production cost (mWU) | >4.3B (overflow)  | >4.3B (overflow)  | **474M**           |
-| % of block            | >100%             | >100%             | **11.9%**          |
-| C BitMachine time     | N/A               | N/A               | **55ms**           |
-| Serialized program    | 126 KB            | ~80 KB            | **25 KB**          |
+| Cost (16-row demo)    | >4.3B (overflow)  | >4.3B (overflow)  | **294M (7.3%)**    |
+| Cost (1K-row circuit) | >4.3B (overflow)  | >4.3B (overflow)  | ~1,000M (~25%)     |
+| C BitMachine time     | N/A               | N/A               | **24ms** (16-row)  |
+| Serialized program    | 126 KB            | ~80 KB            | **21 KB**          |
 
 ### By Execution Environment
 
@@ -475,9 +511,10 @@ routing overhead negligible.
 1. **Circle STARK verification fits within 1/10 of a block at
    production security in Simplicity today.** Using the GSR parameter
    choice (8 queries, log_blowup=10, 20 PoW bits = ~100-bit security),
-   the verifier costs 474M mWU (11.9% of a block), fits in 25 KB,
-   executes in 55ms on the C BitMachine, and requires zero new jets.
-   This leaves ~88% of the block for other transactions.
+   a 16-row demo verifier costs 294M mWU (7.3% of a block), fits in
+   21 KB, executes in 24ms on the C BitMachine, and requires zero new
+   jets. A realistic 1K-row circuit would cost ~25% of a block.
+   This leaves the majority of block weight for other transactions.
 
 2. **The C BitMachine is fast enough for block validation.** At 52ms
    for a production Circle STARK verification, a Liquid/Bitcoin node
