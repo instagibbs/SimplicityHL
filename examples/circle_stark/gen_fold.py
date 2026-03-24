@@ -334,7 +334,7 @@ if __name__ == "__main__":
         "large": (7, 2, 20, 7), "production": (10, 2, 36, 10),
         # GSR-style: high blowup (1024x), few queries, ~100-bit security
         # security = pow_bits + log_blowup * n_queries = 20 + 10*8 = 100
-        "gsr": (5, 10, 8, 5),
+        "gsr": (4, 10, 8, 4),
     }
     if mode not in configs:
         print(f"Usage: {sys.argv[0]} [{'|'.join(configs)}]"); sys.exit(1)
