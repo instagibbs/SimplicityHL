@@ -1,0 +1,263 @@
+/*
+ * MERSENNE-31 FIELD ARITHMETIC AND EXTENSIONS
+ *
+ * M31:  p = 2^31 - 1 (Mersenne prime). Elements stored as u32 in [0, P).
+ * CM31: M31[i] / (i^2 + 1). Complex extension, pairs of M31.
+ * QM31: CM31[u] / (u^2 - (2+i)). Quartic extension, pairs of CM31.
+ *
+ * Key property: 2^31 = 1 mod P, so reduction is shift + add.
+ * Multiplication: multiply_32 gives u64 (at most 62 bits), then reduce.
+ */
+
+// ============================================================
+// M31 base field (p = 2^31 - 1 = 0x7FFFFFFF)
+// ============================================================
+
+fn m31_add(a: u32, b: u32) -> u32 {
+    let (_, sum): (bool, u32) = jet::add_32(a, b);
+    // a, b < P, so sum < 2P < 2^32 (no carry possible)
+    // If sum >= P, subtract P
+    match jet::le_32(0x7fffffff, sum) {
+        true => {
+            let (_, r): (bool, u32) = jet::subtract_32(sum, 0x7fffffff);
+            r
+        },
+        false => sum,
+    }
+}
+
+fn m31_neg(a: u32) -> u32 {
+    match jet::eq_32(a, 0) {
+        true => 0,
+        false => {
+            let (_, r): (bool, u32) = jet::subtract_32(0x7fffffff, a);
+            r
+        },
+    }
+}
+
+fn m31_sub(a: u32, b: u32) -> u32 {
+    m31_add(a, m31_neg(b))
+}
+
+fn m31_mul(a: u32, b: u32) -> u32 {
+    let prod: u64 = jet::multiply_32(a, b);
+    // Mersenne reduction: prod mod P = (prod >> 31) + (prod & P)
+    // Split u64 into (hi32, lo32), then extract bits
+    let (hi, lo): (u32, u32) = <u64>::into(prod);
+    // prod >> 31 = (hi << 1) | (lo >> 31). Since prod < 2^62, hi < 2^30.
+    let upper: u32 = jet::left_shift_32(1, hi);
+    let lo_top: u32 = jet::right_shift_32(31, lo);
+    let (_, shifted): (bool, u32) = jet::add_32(upper, lo_top);
+    let lower: u32 = jet::and_32(lo, 0x7fffffff);
+    m31_add(shifted, lower)
+}
+
+// Square-and-multiply step for m31_inv (Fermat: a^(P-2))
+// P-2 = 0x7FFFFFFD = all 1s except bit 1 is 0
+fn m31_inv_step(acc: u32, base: u32, ctr: u8) -> Either<u32, u32> {
+    let acc: u32 = m31_mul(acc, acc);
+    // Bit index = 29 - ctr. All bits of P-2 are 1 except bit 1.
+    // ctr=28 corresponds to bit 1 (which is 0).
+    let acc: u32 = match jet::eq_8(ctr, 28) {
+        true => acc,
+        false => m31_mul(acc, base),
+    };
+    match jet::eq_8(ctr, 29) {
+        true => Left(acc),
+        false => Right(acc),
+    }
+}
+
+fn m31_inv(a: u32) -> u32 {
+    // a^(P-2) via square-and-multiply, MSB first
+    // Bit 30 is 1, so init acc = a, then process bits 29..0
+    let result: Either<u32, u32> = for_while::<m31_inv_step>(a, a);
+    unwrap_left::<u32>(result)
+}
+
+// ============================================================
+// CM31 complex extension: (re, im) where i^2 = -1
+// ============================================================
+
+fn cm31_add(a: (u32, u32), b: (u32, u32)) -> (u32, u32) {
+    let (a_re, a_im): (u32, u32) = a;
+    let (b_re, b_im): (u32, u32) = b;
+    (m31_add(a_re, b_re), m31_add(a_im, b_im))
+}
+
+fn cm31_sub(a: (u32, u32), b: (u32, u32)) -> (u32, u32) {
+    let (a_re, a_im): (u32, u32) = a;
+    let (b_re, b_im): (u32, u32) = b;
+    (m31_sub(a_re, b_re), m31_sub(a_im, b_im))
+}
+
+fn cm31_neg(a: (u32, u32)) -> (u32, u32) {
+    let (re, im): (u32, u32) = a;
+    (m31_neg(re), m31_neg(im))
+}
+
+fn cm31_mul(a: (u32, u32), b: (u32, u32)) -> (u32, u32) {
+    let (a_re, a_im): (u32, u32) = a;
+    let (b_re, b_im): (u32, u32) = b;
+    // (a_re + a_im*i)(b_re + b_im*i) = (a_re*b_re - a_im*b_im) + (a_re*b_im + a_im*b_re)*i
+    (m31_sub(m31_mul(a_re, b_re), m31_mul(a_im, b_im)),
+     m31_add(m31_mul(a_re, b_im), m31_mul(a_im, b_re)))
+}
+
+// Multiply CM31 by the constant R = (2, 1) = 2 + i
+fn cm31_mul_r(a: (u32, u32)) -> (u32, u32) {
+    let (re, im): (u32, u32) = a;
+    // (re + im*i)(2 + i) = (2*re - im) + (re + 2*im)*i
+    (m31_sub(m31_add(re, re), im), m31_add(re, m31_add(im, im)))
+}
+
+fn cm31_inv(a: (u32, u32)) -> (u32, u32) {
+    let (re, im): (u32, u32) = a;
+    // (re + im*i)^{-1} = (re - im*i) / (re^2 + im^2)
+    let norm: u32 = m31_add(m31_mul(re, re), m31_mul(im, im));
+    let inv_norm: u32 = m31_inv(norm);
+    (m31_mul(re, inv_norm), m31_neg(m31_mul(im, inv_norm)))
+}
+
+// Scale CM31 by M31 scalar
+fn cm31_scale(a: (u32, u32), s: u32) -> (u32, u32) {
+    let (re, im): (u32, u32) = a;
+    (m31_mul(re, s), m31_mul(im, s))
+}
+
+// ============================================================
+// QM31 quartic extension: (a, b) where u^2 = 2+i (= R)
+// a, b are CM31. Element = a + b*u.
+// ============================================================
+
+fn qm31_add(a: ((u32, u32), (u32, u32)), b: ((u32, u32), (u32, u32))) -> ((u32, u32), (u32, u32)) {
+    let (a0, a1): ((u32, u32), (u32, u32)) = a;
+    let (b0, b1): ((u32, u32), (u32, u32)) = b;
+    (cm31_add(a0, b0), cm31_add(a1, b1))
+}
+
+fn qm31_sub(a: ((u32, u32), (u32, u32)), b: ((u32, u32), (u32, u32))) -> ((u32, u32), (u32, u32)) {
+    let (a0, a1): ((u32, u32), (u32, u32)) = a;
+    let (b0, b1): ((u32, u32), (u32, u32)) = b;
+    (cm31_sub(a0, b0), cm31_sub(a1, b1))
+}
+
+fn qm31_neg(a: ((u32, u32), (u32, u32))) -> ((u32, u32), (u32, u32)) {
+    let (a0, a1): ((u32, u32), (u32, u32)) = a;
+    (cm31_neg(a0), cm31_neg(a1))
+}
+
+fn qm31_mul(a: ((u32, u32), (u32, u32)), b: ((u32, u32), (u32, u32))) -> ((u32, u32), (u32, u32)) {
+    let (a0, a1): ((u32, u32), (u32, u32)) = a;
+    let (b0, b1): ((u32, u32), (u32, u32)) = b;
+    // (a0 + a1*u)(b0 + b1*u) = (a0*b0 + a1*b1*R) + (a0*b1 + a1*b0)*u
+    // where R = (2, 1) as CM31
+    let a0b0: (u32, u32) = cm31_mul(a0, b0);
+    let a1b1: (u32, u32) = cm31_mul(a1, b1);
+    let a0b1: (u32, u32) = cm31_mul(a0, b1);
+    let a1b0: (u32, u32) = cm31_mul(a1, b0);
+    (cm31_add(a0b0, cm31_mul_r(a1b1)), cm31_add(a0b1, a1b0))
+}
+
+fn qm31_inv(a: ((u32, u32), (u32, u32))) -> ((u32, u32), (u32, u32)) {
+    let (a0, a1): ((u32, u32), (u32, u32)) = a;
+    // (a0 + a1*u)^{-1} = (a0 - a1*u) / (a0^2 - a1^2 * R)
+    let a0sq: (u32, u32) = cm31_mul(a0, a0);
+    let a1sq: (u32, u32) = cm31_mul(a1, a1);
+    let denom: (u32, u32) = cm31_sub(a0sq, cm31_mul_r(a1sq));
+    let inv_denom: (u32, u32) = cm31_inv(denom);
+    (cm31_mul(a0, inv_denom), cm31_neg(cm31_mul(a1, inv_denom)))
+}
+
+// Scale QM31 by M31 scalar
+fn qm31_scale(a: ((u32, u32), (u32, u32)), s: u32) -> ((u32, u32), (u32, u32)) {
+    let (a0, a1): ((u32, u32), (u32, u32)) = a;
+    (cm31_scale(a0, s), cm31_scale(a1, s))
+}
+
+// Embed M31 into QM31: x -> ((x, 0), (0, 0))
+fn qm31_from_m31(x: u32) -> ((u32, u32), (u32, u32)) {
+    ((x, 0), (0, 0))
+}
+
+// ============================================================
+// Tests
+// ============================================================
+
+fn main() {
+    // --- M31 basic ---
+    // P = 0x7FFFFFFF = 2147483647
+    assert!(jet::eq_32(m31_add(3, 5), 8));
+    assert!(jet::eq_32(m31_add(0x7ffffffe, 1), 0));
+    assert!(jet::eq_32(m31_add(0x7ffffffe, 0x7ffffffe), 0x7ffffffd));
+    assert!(jet::eq_32(m31_sub(5, 3), 2));
+    assert!(jet::eq_32(m31_sub(3, 5), 0x7ffffffd));
+    assert!(jet::eq_32(m31_neg(0), 0));
+    assert!(jet::eq_32(m31_neg(1), 0x7ffffffe));
+    assert!(jet::eq_32(m31_mul(3, 5), 15));
+    assert!(jet::eq_32(m31_mul(0x7ffffffe, 2), 0x7ffffffd));
+
+    // m31_inv: inv(2) = (P+1)/2 = 2^30 = 0x40000000
+    let inv2: u32 = m31_inv(2);
+    assert!(jet::eq_32(inv2, 0x40000000));
+    assert!(jet::eq_32(m31_mul(2, inv2), 1));
+
+    // m31_inv: inv(3) * 3 = 1
+    let inv3: u32 = m31_inv(3);
+    assert!(jet::eq_32(m31_mul(3, inv3), 1));
+
+    // m31_inv: inv(7) * 7 = 1
+    let inv7: u32 = m31_inv(7);
+    assert!(jet::eq_32(m31_mul(7, inv7), 1));
+
+    // --- CM31 ---
+    // i * i = -1
+    let i_val: (u32, u32) = (0, 1);
+    let (i_sq_re, i_sq_im): (u32, u32) = cm31_mul(i_val, i_val);
+    assert!(jet::eq_32(i_sq_re, 0x7ffffffe));
+    assert!(jet::eq_32(i_sq_im, 0));
+
+    // (1+i)(1-i) = 1 + 1 = 2
+    let one_plus_i: (u32, u32) = (1, 1);
+    let one_minus_i: (u32, u32) = (1, 0x7ffffffe);
+    let (prod_re, prod_im): (u32, u32) = cm31_mul(one_plus_i, one_minus_i);
+    assert!(jet::eq_32(prod_re, 2));
+    assert!(jet::eq_32(prod_im, 0));
+
+    // cm31_inv: inv(1+i) * (1+i) = (1, 0)
+    let inv_1i: (u32, u32) = cm31_inv(one_plus_i);
+    let (chk_re, chk_im): (u32, u32) = cm31_mul(one_plus_i, inv_1i);
+    assert!(jet::eq_32(chk_re, 1));
+    assert!(jet::eq_32(chk_im, 0));
+
+    // cm31_mul_r: (1, 0) * R = (2, 1)
+    let (r_re, r_im): (u32, u32) = cm31_mul_r((1, 0));
+    assert!(jet::eq_32(r_re, 2));
+    assert!(jet::eq_32(r_im, 1));
+
+    // --- QM31 ---
+    // u * u = R = ((2, 1), (0, 0)) in QM31
+    let u_val: ((u32, u32), (u32, u32)) = ((0, 0), (1, 0));
+    let ((usq_a_re, usq_a_im), (usq_b_re, usq_b_im)): ((u32, u32), (u32, u32)) = qm31_mul(u_val, u_val);
+    assert!(jet::eq_32(usq_a_re, 2));
+    assert!(jet::eq_32(usq_a_im, 1));
+    assert!(jet::eq_32(usq_b_re, 0));
+    assert!(jet::eq_32(usq_b_im, 0));
+
+    // qm31_inv: inv(1 + u) * (1 + u) = ((1,0),(0,0))
+    let one_plus_u: ((u32, u32), (u32, u32)) = ((1, 0), (1, 0));
+    let inv_1u: ((u32, u32), (u32, u32)) = qm31_inv(one_plus_u);
+    let ((qc_a_re, qc_a_im), (qc_b_re, qc_b_im)): ((u32, u32), (u32, u32)) = qm31_mul(one_plus_u, inv_1u);
+    assert!(jet::eq_32(qc_a_re, 1));
+    assert!(jet::eq_32(qc_a_im, 0));
+    assert!(jet::eq_32(qc_b_re, 0));
+    assert!(jet::eq_32(qc_b_im, 0));
+
+    // qm31_from_m31
+    let ((fq_a_re, fq_a_im), (fq_b_re, fq_b_im)): ((u32, u32), (u32, u32)) = qm31_from_m31(5);
+    assert!(jet::eq_32(fq_a_re, 5));
+    assert!(jet::eq_32(fq_a_im, 0));
+    assert!(jet::eq_32(fq_b_re, 0));
+    assert!(jet::eq_32(fq_b_im, 0));
+}

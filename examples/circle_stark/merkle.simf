@@ -1,0 +1,155 @@
+/*
+ * MERKLE TREE VERIFICATION
+ *
+ * SHA-256 based Merkle tree for Circle STARK commitments.
+ * Verifies authentication paths against committed roots.
+ *
+ * Leaf hash: SHA256(leaf_data)
+ * Node hash: SHA256(left_child || right_child)
+ */
+
+// Hash two u256 children into parent node
+fn hash_node(left: u256, right: u256) -> u256 {
+    let ctx: Ctx8 = jet::sha_256_ctx_8_init();
+    let ctx: Ctx8 = jet::sha_256_ctx_8_add_32(ctx, left);
+    let ctx: Ctx8 = jet::sha_256_ctx_8_add_32(ctx, right);
+    jet::sha_256_ctx_8_finalize(ctx)
+}
+
+// Hash a single u32 value into a leaf
+fn hash_u32(val: u32) -> u256 {
+    let ctx: Ctx8 = jet::sha_256_ctx_8_init();
+    let ctx: Ctx8 = jet::sha_256_ctx_8_add_4(ctx, val);
+    jet::sha_256_ctx_8_finalize(ctx)
+}
+
+// Hash 4 u32 values (one QM31 element) into a leaf
+fn hash_qm31(a_re: u32, a_im: u32, b_re: u32, b_im: u32) -> u256 {
+    let ctx: Ctx8 = jet::sha_256_ctx_8_init();
+    let ctx: Ctx8 = jet::sha_256_ctx_8_add_4(ctx, a_re);
+    let ctx: Ctx8 = jet::sha_256_ctx_8_add_4(ctx, a_im);
+    let ctx: Ctx8 = jet::sha_256_ctx_8_add_4(ctx, b_re);
+    let ctx: Ctx8 = jet::sha_256_ctx_8_add_4(ctx, b_im);
+    jet::sha_256_ctx_8_finalize(ctx)
+}
+
+// One step of Merkle path verification
+// Given current hash, a sibling, and the index bit (0=left, 1=right),
+// compute the parent hash.
+fn merkle_step(current: u256, sibling: u256, is_right: bool) -> u256 {
+    match is_right {
+        false => hash_node(current, sibling),
+        true => hash_node(sibling, current),
+    }
+}
+
+// Extract bit i from a u32 index
+fn get_bit(index: u32, bit: u8) -> bool {
+    let shifted: u32 = jet::right_shift_32(bit, index);
+    let masked: u32 = jet::and_32(shifted, 1);
+    jet::eq_32(masked, 1)
+}
+
+// Verify Merkle path of depth 5 (32-leaf tree)
+fn merkle_verify_5(
+    leaf_hash: u256, index: u32,
+    s0: u256, s1: u256, s2: u256, s3: u256, s4: u256,
+    root: u256
+) -> bool {
+    let h: u256 = merkle_step(leaf_hash, s0, get_bit(index, 0));
+    let h: u256 = merkle_step(h, s1, get_bit(index, 1));
+    let h: u256 = merkle_step(h, s2, get_bit(index, 2));
+    let h: u256 = merkle_step(h, s3, get_bit(index, 3));
+    let h: u256 = merkle_step(h, s4, get_bit(index, 4));
+    jet::eq_256(h, root)
+}
+
+// Verify Merkle path of depth 12 (4096-leaf tree, production size)
+fn merkle_verify_12(
+    leaf_hash: u256, index: u32,
+    s0: u256, s1: u256, s2: u256, s3: u256,
+    s4: u256, s5: u256, s6: u256, s7: u256,
+    s8: u256, s9: u256, s10: u256, s11: u256,
+    root: u256
+) -> bool {
+    let h: u256 = merkle_step(leaf_hash, s0, get_bit(index, 0));
+    let h: u256 = merkle_step(h, s1, get_bit(index, 1));
+    let h: u256 = merkle_step(h, s2, get_bit(index, 2));
+    let h: u256 = merkle_step(h, s3, get_bit(index, 3));
+    let h: u256 = merkle_step(h, s4, get_bit(index, 4));
+    let h: u256 = merkle_step(h, s5, get_bit(index, 5));
+    let h: u256 = merkle_step(h, s6, get_bit(index, 6));
+    let h: u256 = merkle_step(h, s7, get_bit(index, 7));
+    let h: u256 = merkle_step(h, s8, get_bit(index, 8));
+    let h: u256 = merkle_step(h, s9, get_bit(index, 9));
+    let h: u256 = merkle_step(h, s10, get_bit(index, 10));
+    let h: u256 = merkle_step(h, s11, get_bit(index, 11));
+    jet::eq_256(h, root)
+}
+
+// ============================================================
+// Tests: Build a small Merkle tree and verify paths
+// ============================================================
+
+fn main() {
+    // Build a 4-leaf tree (depth 2)
+    // Leaves: hash(0), hash(1), hash(2), hash(3)
+    let l0: u256 = hash_u32(0);
+    let l1: u256 = hash_u32(1);
+    let l2: u256 = hash_u32(2);
+    let l3: u256 = hash_u32(3);
+
+    // Internal nodes
+    let n01: u256 = hash_node(l0, l1);
+    let n23: u256 = hash_node(l2, l3);
+
+    // Root
+    let root: u256 = hash_node(n01, n23);
+
+    // Verify leaf 0 (index=0, path=[l1, n23])
+    let h: u256 = merkle_step(l0, l1, get_bit(0, 0));
+    let h: u256 = merkle_step(h, n23, get_bit(0, 1));
+    assert!(jet::eq_256(h, root));
+
+    // Verify leaf 1 (index=1, path=[l0, n23])
+    let h: u256 = merkle_step(l1, l0, get_bit(1, 0));
+    let h: u256 = merkle_step(h, n23, get_bit(1, 1));
+    assert!(jet::eq_256(h, root));
+
+    // Verify leaf 2 (index=2, path=[l3, n01])
+    let h: u256 = merkle_step(l2, l3, get_bit(2, 0));
+    let h: u256 = merkle_step(h, n01, get_bit(2, 1));
+    assert!(jet::eq_256(h, root));
+
+    // Verify leaf 3 (index=3, path=[l2, n01])
+    let h: u256 = merkle_step(l3, l2, get_bit(3, 0));
+    let h: u256 = merkle_step(h, n01, get_bit(3, 1));
+    assert!(jet::eq_256(h, root));
+
+    // Build 8-leaf tree (depth 3) for more coverage
+    let l4: u256 = hash_u32(4);
+    let l5: u256 = hash_u32(5);
+    let l6: u256 = hash_u32(6);
+    let l7: u256 = hash_u32(7);
+    let n45: u256 = hash_node(l4, l5);
+    let n67: u256 = hash_node(l6, l7);
+    let n0123: u256 = hash_node(n01, n23);
+    let n4567: u256 = hash_node(n45, n67);
+    let root8: u256 = hash_node(n0123, n4567);
+
+    // Verify leaf 5 (index=5=0b101, path=[l4, n67, n0123])
+    let h: u256 = merkle_step(l5, l4, get_bit(5, 0));
+    let h: u256 = merkle_step(h, n67, get_bit(5, 1));
+    let h: u256 = merkle_step(h, n0123, get_bit(5, 2));
+    assert!(jet::eq_256(h, root8));
+
+    // Test hash_qm31
+    let qhash: u256 = hash_qm31(1, 2, 3, 4);
+    let qhash2: u256 = hash_qm31(1, 2, 3, 4);
+    assert!(jet::eq_256(qhash, qhash2));
+
+    // Different input -> different hash
+    let qhash3: u256 = hash_qm31(1, 2, 3, 5);
+    let same: bool = jet::eq_256(qhash, qhash3);
+    assert!(match same { true => false, false => true, });
+}

@@ -461,6 +461,28 @@ pub(crate) mod tests {
             }
         }
 
+        pub fn assert_run_success_with_metrics(self) {
+            let env = dummy_env::dummy_with(self.lock_time, self.sequence, self.include_fee_output);
+            let pruned = self.program.redeem().prune(&env).unwrap();
+            let bounds = pruned.bounds();
+            let io_width = pruned.arrow().source.bit_width() + pruned.arrow().target.bit_width();
+            let (program_bytes, _) = self.program.redeem().to_vec_with_witness();
+            eprintln!("=== Program Metrics ===");
+            eprintln!("  Serialized size:  {} bytes", program_bytes.len());
+            eprintln!("  Extra cells:      {} bits ({:.1} KB)", bounds.extra_cells, bounds.extra_cells as f64 / 8192.0);
+            eprintln!("  Extra frames:     {}", bounds.extra_frames);
+            eprintln!("  IO width:         {} bits", io_width);
+            eprintln!("  Cost (mWU):       {}", bounds.cost);
+            let mut mac = BitMachine::for_program(&pruned)
+                .expect("program should be within reasonable bounds");
+            let result = mac.exec(&pruned, &env);
+            match result {
+                Ok(_) => eprintln!("  Execution:        SUCCESS"),
+                Err(ref e) => eprintln!("  Execution:        FAILED: {e}"),
+            }
+            result.unwrap();
+        }
+
         pub fn get_encoding_with_witness(self) -> (String, String) {
             let (program_bytes, witness_bytes) = self.program.redeem().to_vec_with_witness();
             (
@@ -512,6 +534,48 @@ pub(crate) mod tests {
     #[ignore]
     fn groth16_verify() {
         TestCase::program_file("./examples/groth16/groth16.simf")
+            .with_witness_values(WitnessValues::default())
+            .assert_run_success();
+    }
+
+    #[test]
+    fn circle_stark_m31() {
+        TestCase::program_file("./examples/circle_stark/m31.simf")
+            .with_witness_values(WitnessValues::default())
+            .assert_run_success();
+    }
+
+    #[test]
+    fn circle_stark_channel() {
+        TestCase::program_file("./examples/circle_stark/channel.simf")
+            .with_witness_values(WitnessValues::default())
+            .assert_run_success();
+    }
+
+    #[test]
+    fn circle_stark_merkle() {
+        TestCase::program_file("./examples/circle_stark/merkle.simf")
+            .with_witness_values(WitnessValues::default())
+            .assert_run_success();
+    }
+
+    #[test]
+    fn circle_stark_circle() {
+        TestCase::program_file("./examples/circle_stark/circle.simf")
+            .with_witness_values(WitnessValues::default())
+            .assert_run_success();
+    }
+
+    #[test]
+    fn circle_stark_fri() {
+        TestCase::program_file("./examples/circle_stark/fri.simf")
+            .with_witness_values(WitnessValues::default())
+            .assert_run_success();
+    }
+
+    #[test]
+    fn circle_stark_verifier() {
+        TestCase::program_file("./examples/circle_stark/verifier.simf")
             .with_witness_values(WitnessValues::default())
             .assert_run_success();
     }

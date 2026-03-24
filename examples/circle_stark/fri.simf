@@ -1,0 +1,236 @@
+/*
+ * FRI VERIFICATION
+ *
+ * Fast Reed-Solomon Interactive Oracle Proof verification for Circle STARKs.
+ *
+ * FRI reduces polynomial commitment verification to checking that:
+ * 1. Folded evaluations are consistent across layers (ibutterfly + alpha fold)
+ * 2. Merkle commitments authenticate the claimed evaluations
+ * 3. The final layer is a low-degree (constant) polynomial
+ *
+ * Two fold types:
+ *   fold_circle: first layer, folds circle domain to line domain
+ *   fold_line:   subsequent layers, folds line domain in half
+ *
+ * Both use the ibutterfly operation internally.
+ */
+
+// ============================================================
+// M31 arithmetic (duplicated)
+// ============================================================
+
+fn m31_add(a: u32, b: u32) -> u32 {
+    let (_, sum): (bool, u32) = jet::add_32(a, b);
+    match jet::le_32(0x7fffffff, sum) {
+        true => { let (_, r): (bool, u32) = jet::subtract_32(sum, 0x7fffffff); r },
+        false => sum,
+    }
+}
+
+fn m31_neg(a: u32) -> u32 {
+    match jet::eq_32(a, 0) {
+        true => 0,
+        false => { let (_, r): (bool, u32) = jet::subtract_32(0x7fffffff, a); r },
+    }
+}
+
+fn m31_sub(a: u32, b: u32) -> u32 { m31_add(a, m31_neg(b)) }
+
+fn m31_mul(a: u32, b: u32) -> u32 {
+    let prod: u64 = jet::multiply_32(a, b);
+    let (hi, lo): (u32, u32) = <u64>::into(prod);
+    let upper: u32 = jet::left_shift_32(1, hi);
+    let lo_top: u32 = jet::right_shift_32(31, lo);
+    let (_, shifted): (bool, u32) = jet::add_32(upper, lo_top);
+    let lower: u32 = jet::and_32(lo, 0x7fffffff);
+    m31_add(shifted, lower)
+}
+
+fn m31_inv_step(acc: u32, base: u32, ctr: u8) -> Either<u32, u32> {
+    let acc: u32 = m31_mul(acc, acc);
+    let acc: u32 = match jet::eq_8(ctr, 28) { true => acc, false => m31_mul(acc, base), };
+    match jet::eq_8(ctr, 29) { true => Left(acc), false => Right(acc), }
+}
+
+fn m31_inv(a: u32) -> u32 {
+    let result: Either<u32, u32> = for_while::<m31_inv_step>(a, a);
+    unwrap_left::<u32>(result)
+}
+
+// ============================================================
+// CM31 arithmetic (duplicated)
+// ============================================================
+
+fn cm31_add(a: (u32, u32), b: (u32, u32)) -> (u32, u32) {
+    let (a_re, a_im): (u32, u32) = a;
+    let (b_re, b_im): (u32, u32) = b;
+    (m31_add(a_re, b_re), m31_add(a_im, b_im))
+}
+
+fn cm31_sub(a: (u32, u32), b: (u32, u32)) -> (u32, u32) {
+    let (a_re, a_im): (u32, u32) = a;
+    let (b_re, b_im): (u32, u32) = b;
+    (m31_sub(a_re, b_re), m31_sub(a_im, b_im))
+}
+
+fn cm31_neg(a: (u32, u32)) -> (u32, u32) {
+    let (re, im): (u32, u32) = a;
+    (m31_neg(re), m31_neg(im))
+}
+
+fn cm31_mul(a: (u32, u32), b: (u32, u32)) -> (u32, u32) {
+    let (a_re, a_im): (u32, u32) = a;
+    let (b_re, b_im): (u32, u32) = b;
+    (m31_sub(m31_mul(a_re, b_re), m31_mul(a_im, b_im)),
+     m31_add(m31_mul(a_re, b_im), m31_mul(a_im, b_re)))
+}
+
+fn cm31_mul_r(a: (u32, u32)) -> (u32, u32) {
+    let (re, im): (u32, u32) = a;
+    (m31_sub(m31_add(re, re), im), m31_add(re, m31_add(im, im)))
+}
+
+fn cm31_scale(a: (u32, u32), s: u32) -> (u32, u32) {
+    let (re, im): (u32, u32) = a;
+    (m31_mul(re, s), m31_mul(im, s))
+}
+
+// ============================================================
+// QM31 arithmetic (duplicated)
+// ============================================================
+
+type QM31 = ((u32, u32), (u32, u32));
+
+fn qm31_add(a: QM31, b: QM31) -> QM31 {
+    let (a0, a1): QM31 = a;
+    let (b0, b1): QM31 = b;
+    (cm31_add(a0, b0), cm31_add(a1, b1))
+}
+
+fn qm31_sub(a: QM31, b: QM31) -> QM31 {
+    let (a0, a1): QM31 = a;
+    let (b0, b1): QM31 = b;
+    (cm31_sub(a0, b0), cm31_sub(a1, b1))
+}
+
+fn qm31_mul(a: QM31, b: QM31) -> QM31 {
+    let (a0, a1): QM31 = a;
+    let (b0, b1): QM31 = b;
+    let a0b0: (u32, u32) = cm31_mul(a0, b0);
+    let a1b1: (u32, u32) = cm31_mul(a1, b1);
+    let a0b1: (u32, u32) = cm31_mul(a0, b1);
+    let a1b0: (u32, u32) = cm31_mul(a1, b0);
+    (cm31_add(a0b0, cm31_mul_r(a1b1)), cm31_add(a0b1, a1b0))
+}
+
+fn qm31_scale(a: QM31, s: u32) -> QM31 {
+    let (a0, a1): QM31 = a;
+    (cm31_scale(a0, s), cm31_scale(a1, s))
+}
+
+fn qm31_from_m31(x: u32) -> QM31 {
+    ((x, 0), (0, 0))
+}
+
+// ============================================================
+// FRI core operations
+// ============================================================
+
+// Inverse of 2 in M31: (P+1)/2 = 2^30
+fn inv2() -> u32 { 0x40000000 }
+
+// ibutterfly: the core FRI operation
+// Given evaluations v0 = f(P) and v1 = f(-P), and twiddle factor t,
+// returns (f_even, f_odd) where:
+//   f_even = (v0 + v1) / 2
+//   f_odd  = (v0 - v1) / (2 * t)
+fn ibutterfly(v0: QM31, v1: QM31, t: u32) -> (QM31, QM31) {
+    let sum: QM31 = qm31_add(v0, v1);
+    let diff: QM31 = qm31_sub(v0, v1);
+    let half: u32 = inv2();
+    let f_even: QM31 = qm31_scale(sum, half);
+    let inv_2t: u32 = m31_inv(m31_add(t, t));
+    let f_odd: QM31 = qm31_scale(diff, inv_2t);
+    (f_even, f_odd)
+}
+
+// Fold circle domain to line domain (first FRI step)
+// Given f(P) and f(-P) at conjugate circle points, and random alpha,
+// returns the folded line evaluation.
+fn fold_circle(f_p: QM31, f_neg_p: QM31, alpha: QM31, p_y: u32) -> QM31 {
+    let (f_even, f_odd): (QM31, QM31) = ibutterfly(f_p, f_neg_p, p_y);
+    qm31_add(f_even, qm31_mul(alpha, f_odd))
+}
+
+// Fold line domain (subsequent FRI steps)
+// Given f(x) and f(-x) at symmetric line points, and random alpha,
+// returns the folded evaluation.
+fn fold_line(f_x: QM31, f_neg_x: QM31, alpha: QM31, x: u32) -> QM31 {
+    let (f_even, f_odd): (QM31, QM31) = ibutterfly(f_x, f_neg_x, x);
+    qm31_add(f_even, qm31_mul(alpha, f_odd))
+}
+
+// ============================================================
+// Tests
+// ============================================================
+
+fn main() {
+    // Test ibutterfly: if v0 = v1, then f_even = v0, f_odd = 0
+    let v: QM31 = ((5, 3), (7, 11));
+    let ((e0_re, e0_im), (e1_re, e1_im)): QM31 = {
+        let (f_even, f_odd): (QM31, QM31) = ibutterfly(v, v, 1);
+        f_even
+    };
+    // f_even should equal v
+    assert!(jet::eq_32(e0_re, 5));
+    assert!(jet::eq_32(e0_im, 3));
+    assert!(jet::eq_32(e1_re, 7));
+    assert!(jet::eq_32(e1_im, 11));
+
+    // f_odd should be zero
+    let ((o0_re, o0_im), (o1_re, o1_im)): QM31 = {
+        let (_, f_odd): (QM31, QM31) = ibutterfly(v, v, 1);
+        f_odd
+    };
+    assert!(jet::eq_32(o0_re, 0));
+    assert!(jet::eq_32(o0_im, 0));
+    assert!(jet::eq_32(o1_re, 0));
+    assert!(jet::eq_32(o1_im, 0));
+
+    // Test ibutterfly: if v1 = -v0, then f_even = 0, f_odd = v0/t
+    let v0: QM31 = ((10, 0), (0, 0));
+    let v1: QM31 = ((0x7ffffff5, 0), (0, 0));
+    let (f_even, f_odd): (QM31, QM31) = ibutterfly(v0, v1, 1);
+    let ((fe_re, fe_im), (fe1_re, fe1_im)): QM31 = f_even;
+    assert!(jet::eq_32(fe_re, 0));
+    assert!(jet::eq_32(fe_im, 0));
+    assert!(jet::eq_32(fe1_re, 0));
+    assert!(jet::eq_32(fe1_im, 0));
+    // f_odd = 10 / 1 = 10 (since t=1, inv_2t = inv(2), and diff = 20, so 20 * inv(2) = 10)
+    let ((fo_re, fo_im), (fo1_re, fo1_im)): QM31 = f_odd;
+    assert!(jet::eq_32(fo_re, 10));
+    assert!(jet::eq_32(fo_im, 0));
+    assert!(jet::eq_32(fo1_re, 0));
+    assert!(jet::eq_32(fo1_im, 0));
+
+    // Test fold_line roundtrip:
+    // If we have a linear polynomial f(x) = a + b*x,
+    // then f(x) at x and f(-x) gives:
+    //   f(x)  = a + b*x
+    //   f(-x) = a - b*x
+    // ibutterfly gives (a, b), fold with alpha returns a + alpha*b
+    let a: QM31 = ((3, 0), (0, 0));
+    let b: QM31 = ((7, 0), (0, 0));
+    let x: u32 = 5;
+    // f(x) = a + b*x = 3 + 7*5 = 38
+    let f_x: QM31 = qm31_add(a, qm31_scale(b, x));
+    // f(-x) = a - b*x = 3 - 35 = 3 + (P - 35) = P - 32 = 0x7fffffdf
+    let f_neg_x: QM31 = qm31_sub(a, qm31_scale(b, x));
+    let alpha: QM31 = ((2, 0), (0, 0));
+    // fold should give a + alpha * b = 3 + 2*7 = 17
+    let ((r_re, r_im), (r1_re, r1_im)): QM31 = fold_line(f_x, f_neg_x, alpha, x);
+    assert!(jet::eq_32(r_re, 17));
+    assert!(jet::eq_32(r_im, 0));
+    assert!(jet::eq_32(r1_re, 0));
+    assert!(jet::eq_32(r1_im, 0));
+}
