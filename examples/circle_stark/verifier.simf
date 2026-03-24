@@ -1,5 +1,4 @@
 /* Circle STARK verifier (36q, 10fri, domain 2^12) */
-/* Optimized: precomputed twiddle inverses, no m31_inv */
 
 fn m31_add(a: u32, b: u32) -> u32 { let (_, sum): (bool, u32) = jet::add_32(a, b); match jet::le_32(0x7fffffff, sum) { true => { let (_, r): (bool, u32) = jet::subtract_32(sum, 0x7fffffff); r }, false => sum, } }
 fn m31_neg(a: u32) -> u32 { match jet::eq_32(a, 0) { true => 0, false => { let (_, r): (bool, u32) = jet::subtract_32(0x7fffffff, a); r }, } }
@@ -61,42 +60,42 @@ fn main() {
     let state: u256 = channel_mix(state, 0x7573c088692151abd05d7d45e538693c872435fb3e5424ce127e0fc3adf33fc9);
     let (state, fri_alpha_9): (u256, QM31) = channel_squeeze_qm31(state);
     let state: u256 = channel_mix(state, 0x0f555ea098b296476612d3228afde5f82fe8dadea10601af13d82d3c2ad30dcd);
-    let (state, _q0_idx): (u256, u32) = channel_squeeze_index(state, 0x00000fff);
-    let (state, _q1_idx): (u256, u32) = channel_squeeze_index(state, 0x00000fff);
-    let (state, _q2_idx): (u256, u32) = channel_squeeze_index(state, 0x00000fff);
-    let (state, _q3_idx): (u256, u32) = channel_squeeze_index(state, 0x00000fff);
-    let (state, _q4_idx): (u256, u32) = channel_squeeze_index(state, 0x00000fff);
-    let (state, _q5_idx): (u256, u32) = channel_squeeze_index(state, 0x00000fff);
-    let (state, _q6_idx): (u256, u32) = channel_squeeze_index(state, 0x00000fff);
-    let (state, _q7_idx): (u256, u32) = channel_squeeze_index(state, 0x00000fff);
-    let (state, _q8_idx): (u256, u32) = channel_squeeze_index(state, 0x00000fff);
-    let (state, _q9_idx): (u256, u32) = channel_squeeze_index(state, 0x00000fff);
-    let (state, _q10_idx): (u256, u32) = channel_squeeze_index(state, 0x00000fff);
-    let (state, _q11_idx): (u256, u32) = channel_squeeze_index(state, 0x00000fff);
-    let (state, _q12_idx): (u256, u32) = channel_squeeze_index(state, 0x00000fff);
-    let (state, _q13_idx): (u256, u32) = channel_squeeze_index(state, 0x00000fff);
-    let (state, _q14_idx): (u256, u32) = channel_squeeze_index(state, 0x00000fff);
-    let (state, _q15_idx): (u256, u32) = channel_squeeze_index(state, 0x00000fff);
-    let (state, _q16_idx): (u256, u32) = channel_squeeze_index(state, 0x00000fff);
-    let (state, _q17_idx): (u256, u32) = channel_squeeze_index(state, 0x00000fff);
-    let (state, _q18_idx): (u256, u32) = channel_squeeze_index(state, 0x00000fff);
-    let (state, _q19_idx): (u256, u32) = channel_squeeze_index(state, 0x00000fff);
-    let (state, _q20_idx): (u256, u32) = channel_squeeze_index(state, 0x00000fff);
-    let (state, _q21_idx): (u256, u32) = channel_squeeze_index(state, 0x00000fff);
-    let (state, _q22_idx): (u256, u32) = channel_squeeze_index(state, 0x00000fff);
-    let (state, _q23_idx): (u256, u32) = channel_squeeze_index(state, 0x00000fff);
-    let (state, _q24_idx): (u256, u32) = channel_squeeze_index(state, 0x00000fff);
-    let (state, _q25_idx): (u256, u32) = channel_squeeze_index(state, 0x00000fff);
-    let (state, _q26_idx): (u256, u32) = channel_squeeze_index(state, 0x00000fff);
-    let (state, _q27_idx): (u256, u32) = channel_squeeze_index(state, 0x00000fff);
-    let (state, _q28_idx): (u256, u32) = channel_squeeze_index(state, 0x00000fff);
-    let (state, _q29_idx): (u256, u32) = channel_squeeze_index(state, 0x00000fff);
-    let (state, _q30_idx): (u256, u32) = channel_squeeze_index(state, 0x00000fff);
-    let (state, _q31_idx): (u256, u32) = channel_squeeze_index(state, 0x00000fff);
-    let (state, _q32_idx): (u256, u32) = channel_squeeze_index(state, 0x00000fff);
-    let (state, _q33_idx): (u256, u32) = channel_squeeze_index(state, 0x00000fff);
-    let (state, _q34_idx): (u256, u32) = channel_squeeze_index(state, 0x00000fff);
-    let (state, _q35_idx): (u256, u32) = channel_squeeze_index(state, 0x00000fff);
+    let (state, _qi): (u256, u32) = channel_squeeze_index(state, 0x00000fff);
+    let (state, _qi): (u256, u32) = channel_squeeze_index(state, 0x00000fff);
+    let (state, _qi): (u256, u32) = channel_squeeze_index(state, 0x00000fff);
+    let (state, _qi): (u256, u32) = channel_squeeze_index(state, 0x00000fff);
+    let (state, _qi): (u256, u32) = channel_squeeze_index(state, 0x00000fff);
+    let (state, _qi): (u256, u32) = channel_squeeze_index(state, 0x00000fff);
+    let (state, _qi): (u256, u32) = channel_squeeze_index(state, 0x00000fff);
+    let (state, _qi): (u256, u32) = channel_squeeze_index(state, 0x00000fff);
+    let (state, _qi): (u256, u32) = channel_squeeze_index(state, 0x00000fff);
+    let (state, _qi): (u256, u32) = channel_squeeze_index(state, 0x00000fff);
+    let (state, _qi): (u256, u32) = channel_squeeze_index(state, 0x00000fff);
+    let (state, _qi): (u256, u32) = channel_squeeze_index(state, 0x00000fff);
+    let (state, _qi): (u256, u32) = channel_squeeze_index(state, 0x00000fff);
+    let (state, _qi): (u256, u32) = channel_squeeze_index(state, 0x00000fff);
+    let (state, _qi): (u256, u32) = channel_squeeze_index(state, 0x00000fff);
+    let (state, _qi): (u256, u32) = channel_squeeze_index(state, 0x00000fff);
+    let (state, _qi): (u256, u32) = channel_squeeze_index(state, 0x00000fff);
+    let (state, _qi): (u256, u32) = channel_squeeze_index(state, 0x00000fff);
+    let (state, _qi): (u256, u32) = channel_squeeze_index(state, 0x00000fff);
+    let (state, _qi): (u256, u32) = channel_squeeze_index(state, 0x00000fff);
+    let (state, _qi): (u256, u32) = channel_squeeze_index(state, 0x00000fff);
+    let (state, _qi): (u256, u32) = channel_squeeze_index(state, 0x00000fff);
+    let (state, _qi): (u256, u32) = channel_squeeze_index(state, 0x00000fff);
+    let (state, _qi): (u256, u32) = channel_squeeze_index(state, 0x00000fff);
+    let (state, _qi): (u256, u32) = channel_squeeze_index(state, 0x00000fff);
+    let (state, _qi): (u256, u32) = channel_squeeze_index(state, 0x00000fff);
+    let (state, _qi): (u256, u32) = channel_squeeze_index(state, 0x00000fff);
+    let (state, _qi): (u256, u32) = channel_squeeze_index(state, 0x00000fff);
+    let (state, _qi): (u256, u32) = channel_squeeze_index(state, 0x00000fff);
+    let (state, _qi): (u256, u32) = channel_squeeze_index(state, 0x00000fff);
+    let (state, _qi): (u256, u32) = channel_squeeze_index(state, 0x00000fff);
+    let (state, _qi): (u256, u32) = channel_squeeze_index(state, 0x00000fff);
+    let (state, _qi): (u256, u32) = channel_squeeze_index(state, 0x00000fff);
+    let (state, _qi): (u256, u32) = channel_squeeze_index(state, 0x00000fff);
+    let (state, _qi): (u256, u32) = channel_squeeze_index(state, 0x00000fff);
+    let (state, _qi): (u256, u32) = channel_squeeze_index(state, 0x00000fff);
 
     // Query 0
     let h: u256 = hash_u32_leaf(0x3051ccea);

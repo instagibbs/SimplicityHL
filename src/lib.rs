@@ -466,21 +466,44 @@ pub(crate) mod tests {
             let pruned = self.program.redeem().prune(&env).unwrap();
             let bounds = pruned.bounds();
             let io_width = pruned.arrow().source.bit_width() + pruned.arrow().target.bit_width();
-            let (program_bytes, _) = self.program.redeem().to_vec_with_witness();
+            let (program_bytes, witness_bytes) = self.program.redeem().to_vec_with_witness();
             eprintln!("=== Program Metrics ===");
             eprintln!("  Serialized size:  {} bytes", program_bytes.len());
             eprintln!("  Extra cells:      {} bits ({:.1} KB)", bounds.extra_cells, bounds.extra_cells as f64 / 8192.0);
             eprintln!("  Extra frames:     {}", bounds.extra_frames);
             eprintln!("  IO width:         {} bits", io_width);
             eprintln!("  Cost (mWU):       {}", bounds.cost);
+
+            // Rust BitMachine
+            let start = std::time::Instant::now();
             let mut mac = BitMachine::for_program(&pruned)
                 .expect("program should be within reasonable bounds");
             let result = mac.exec(&pruned, &env);
+            let rust_elapsed = start.elapsed();
             match result {
-                Ok(_) => eprintln!("  Execution:        SUCCESS"),
-                Err(ref e) => eprintln!("  Execution:        FAILED: {e}"),
+                Ok(_) => eprintln!("  Rust BitMachine:  SUCCESS in {rust_elapsed:.2?}"),
+                Err(ref e) => eprintln!("  Rust BitMachine:  FAILED: {e}"),
             }
             result.unwrap();
+
+            // C BitMachine (TCO)
+            let start = std::time::Instant::now();
+            let c_result = simplicity_sys::tests::run_program(
+                &program_bytes,
+                &witness_bytes,
+                simplicity_sys::tests::TestUpTo::Everything,
+                None,
+                None,
+            );
+            let c_elapsed = start.elapsed();
+            match c_result {
+                Ok(output) => {
+                    eprintln!("  C BitMachine:     SUCCESS in {c_elapsed:.2?}");
+                    eprintln!("  C cost_bound:     {}", output.cost_bound);
+                }
+                Err(e) => eprintln!("  C BitMachine:     FAILED: {e:?}"),
+            }
+            eprintln!("  Speedup (C/Rust): {:.1}x", rust_elapsed.as_secs_f64() / c_elapsed.as_secs_f64());
         }
 
         pub fn get_encoding_with_witness(self) -> (String, String) {
@@ -577,7 +600,7 @@ pub(crate) mod tests {
     fn circle_stark_verifier() {
         TestCase::program_file("./examples/circle_stark/verifier.simf")
             .with_witness_values(WitnessValues::default())
-            .assert_run_success();
+            .assert_run_success_with_metrics();
     }
 
     #[test]

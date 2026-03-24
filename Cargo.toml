@@ -33,6 +33,9 @@ arbitrary = { version = "1", optional = true, features = ["derive"] }
 clap = "4.5.37"
 chumsky = "0.11.2"
 
+[dev-dependencies]
+simplicity-sys = { version = "0.6.0", features = ["test-utils"] }
+
 [patch.crates-io]
 simplicity-lang = { path = "../rust-simplicity" }
 simplicity-sys = { path = "../rust-simplicity/simplicity-sys" }
