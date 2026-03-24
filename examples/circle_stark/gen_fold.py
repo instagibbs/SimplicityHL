@@ -91,12 +91,31 @@ def fold_eval(v0, v1, alpha, t):
     fo = qm31_scale(qm31_sub(v0, v1), m31_inv(m31_mul(2, t)))
     return qm31_add(fe, qm31_mul(alpha, fo))
 
+def circle_pow_fast(gen, n):
+    """Square-and-multiply for circle group."""
+    r = (1, 0)
+    base = gen
+    while n > 0:
+        if n & 1:
+            r = circle_mul(r, base)
+        base = circle_mul(base, base)
+        n >>= 1
+    return r
+
 def generate_proof(lt, lb, nq, nfl, seed=42):
     random.seed(seed)
     ld = lt + lb; ds = 1 << ld
     print(f"Params: domain=2^{ld}, queries={nq}, fri_layers={nfl}")
     eg = subgroup_gen(ld)
-    ep = [circle_pow(eg, i) for i in range(ds)]
+    # Build domain via repeated doubling for speed
+    ep = [(1, 0)] * ds
+    if ds > 0:
+        ep[0] = (1, 0)  # identity
+        if ds > 1:
+            ep[1] = eg
+            for i in range(2, ds):
+                ep[i] = circle_mul(ep[i-1], eg)
+    print(f"  {ds} domain points computed")
     te = [random.randint(0, P-1) for _ in range(ds)]
     tt = MerkleTree([hash_m31_leaf([v]) for v in te])
     ch = Channel(); ch.mix(tt.root); ch.squeeze_qm31()
@@ -313,6 +332,9 @@ if __name__ == "__main__":
     configs = {
         "toy": (3, 2, 3, 3), "medium": (5, 2, 12, 5),
         "large": (7, 2, 20, 7), "production": (10, 2, 36, 10),
+        # GSR-style: high blowup (1024x), few queries, ~100-bit security
+        # security = pow_bits + log_blowup * n_queries = 20 + 10*8 = 100
+        "gsr": (5, 10, 8, 5),
     }
     if mode not in configs:
         print(f"Usage: {sys.argv[0]} [{'|'.join(configs)}]"); sys.exit(1)
