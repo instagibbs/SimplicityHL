@@ -211,17 +211,19 @@ multiply. The extension field QM31 (quartic, ~124-bit security) costs
 No new jets needed. Everything uses existing SHA-256 and 32/64-bit
 arithmetic jets.
 
-### Measured Benchmarks
+### Measured Benchmarks (Optimized)
 
 All configurations generate real proofs and pass end-to-end
-verification in SimplicityHL.
+verification in SimplicityHL. The verifier uses precomputed twiddle
+factor inverses — all `m31_inv` calls have been eliminated, leaving
+only straight-line arithmetic and SHA-256 hashing.
 
 | Config | Queries | FRI Layers | Domain | Cost (mWU) | Size (KB) | Cells (KB) | Exec Time |
 |--------|---------|------------|--------|------------|-----------|------------|-----------|
-| Toy | 3 | 3 | 32 | **5.9M** | 7.9 | 132 | 0.75s |
-| Medium | 12 | 5 | 128 | **107M** | 35 | 3,786 | 2.3s |
-| Large | 20 | 7 | 512 | **577M** | 99 | 23,114 | 6.3s |
-| Production | 36 | 10 | 4096 | **>4.3B** (overflow) | 291 | 196,221 | 50s |
+| Toy | 3 | 3 | 32 | **4.3M** | 5.5 | 94 | 0.6s |
+| Medium | 12 | 5 | 128 | **74.6M** | 25.9 | 3,494 | 1.7s |
+| Large | 20 | 7 | 512 | **407M** | 64.2 | 22,166 | 4.5s |
+| Production | 36 | 10 | 4096 | **3,285M** | 187.9 | 192,459 | 35s |
 
 **Security levels (approximate):**
 - Toy: ~6 bits (testing only)
@@ -229,34 +231,41 @@ verification in SimplicityHL.
 - Large: ~40 bits (log2(blowup) × queries = 2 × 20)
 - Production: ~72 bits from FRI (needs +28 PoW bits for ~100-bit total)
 
-### Cost Breakdown
+**Production fits within u32 cost limit** (3.29B < 4.295B max).
 
-The dominant costs in the production verifier:
+### Optimization Applied: Precomputed Twiddle Inverses
 
-1. **m31_inv inside ibutterfly** — called 360 times (36 queries × 10
-   layers), each running 30 square-and-multiply iterations. This is
-   the single largest cost item.
+The original `ibutterfly` computed `m31_inv(2 * twiddle)` at runtime,
+requiring a 30-iteration square-and-multiply loop per call (360 calls
+at production). Precomputing these in the Python generator and
+embedding them as constants gave a consistent ~30% cost reduction:
 
-2. **SHA-256 Merkle verification** — 36 queries × ~10 layers × ~7
-   average depth = ~2,520 hash operations.
+| Config | Before (mWU) | After (mWU) | Reduction |
+|--------|-------------|-------------|-----------|
+| Toy | 5.9M | 4.3M | -26% |
+| Medium | 107M | 74.6M | -30% |
+| Large | 577M | 407M | -29% |
+| Production | >4.3B (overflow) | **3,285M** | **Now fits** |
 
-3. **QM31 arithmetic in FRI folds** — 360 fold operations, each doing
-   ~10 QM31 operations.
+This also removed all `for_while` loops from the verifier — every
+operation is now straight-line code.
 
-### Identified Optimization: Precompute Twiddle Inverses
+### Cost Breakdown (Production, Optimized)
 
-The `ibutterfly` function computes `m31_inv(2 * twiddle)` at runtime.
-These twiddle factors are deterministic (derived from the domain), so
-their inverses can be precomputed in the Python generator and passed as
-constants. This would:
+The remaining costs are:
 
-- Eliminate 360 × 30 = 10,800 m31_mul pairs from square-and-multiply
-- Eliminate 360 m31_inv calls entirely
-- Estimated savings: **~60-70% of total cost**
-- Would likely bring production config under the u32 limit
+1. **SHA-256 Merkle verification** — 2,772 hash operations (36 queries
+   × average ~77 Merkle steps across trace + 10 FRI layers). This is
+   now the dominant cost.
 
-This optimization was not applied yet — the current numbers reflect
-the unoptimized verifier.
+2. **QM31 arithmetic in FRI folds** — 360 fold operations, each doing
+   2 qm31_scale + 1 qm31_mul + adds ≈ ~55 jets per fold.
+
+3. **Fiat-Shamir channel** — ~50 SHA-256 hashes for squeezing
+   challenges and query indices.
+
+4. **Combinator routing overhead** — the 4096-line unrolled program
+   creates significant DAG routing overhead (192 MB of cells).
 
 ---
 
@@ -264,46 +273,46 @@ the unoptimized verifier.
 
 Both systems implemented end-to-end in SimplicityHL with passing tests.
 
-### Production Parameters
+### Production Parameters (Optimized)
 
 | Metric | Circle STARK (36q, 10fri) | Groth16 (64-bit jets) | Groth16 (Fp jets) |
 |--------|--------------------------|----------------------|-------------------|
-| Cost (mWU) | >4.3B (overflow) | >4.3B (overflow) | >4.3B (overflow) |
-| Serialized size | 291 KB | 126 KB | ~80 KB |
-| BitMachine cells | 196 MB | 2.5 MB | ~2 MB |
-| Execution time | **50s** | 1,239s | **125s** |
-| Exec speedup vs Groth16 | **17x** faster | baseline | 10x faster |
+| Cost (mWU) | **3,285M** | >4.3B (overflow) | >4.3B (overflow) |
+| Fits in u32? | **Yes** | No | No |
+| Serialized size | 188 KB | 126 KB | ~80 KB |
+| BitMachine cells | 192 MB | 2.5 MB | ~2 MB |
+| Execution time | **35s** | 1,239s | **125s** |
+| Exec speedup vs Groth16 | **35x** faster | baseline | 10x faster |
 | New jets needed | **None** | None | 5 Fp jets |
 | Post-quantum | **Yes** | No | No |
 | Proof size (witness) | ~50-100 KB | ~200 bytes | ~200 bytes |
 
-### Sub-Production (fits in u32 cost counter)
+### All Configurations vs Groth16
 
-| Metric | Circle STARK (20q, 7fri) | Groth16 |
-|--------|--------------------------|---------|
-| Cost (mWU) | **577M** | >4.3B |
-| Ratio | **7.4x cheaper** | baseline |
-| Serialized | 99 KB | 126 KB |
-| Execution | 6.3s | 125-1239s |
+| Metric | Toy (3q) | Medium (12q) | Large (20q) | Prod (36q) | Groth16 |
+|--------|----------|-------------|-------------|------------|---------|
+| Cost (mWU) | 4.3M | 74.6M | 407M | **3,285M** | >4,295M |
+| Size (KB) | 5.5 | 25.9 | 64.2 | 188 | 126 |
+| Exec time | 0.6s | 1.7s | 4.5s | 35s | 125-1239s |
+| Fits u32? | Yes | Yes | Yes | **Yes** | **No** |
 
 ### Scaling Behavior
 
-Circle STARK cost scales linearly with `queries × fri_layers`:
+Circle STARK cost scales roughly as `O(queries × fri_layers × avg_merkle_depth)`:
 
 ```
-Cost ≈ 500K × queries × fri_layers (mWU, unoptimized)
+Cost ≈ 250K × queries × fri_layers (mWU, optimized)
 ```
 
 Groth16 cost is constant regardless of circuit size (always 3 pairings).
-The crossover point where Circle STARK exceeds Groth16's cost is at
-very high query counts — but Groth16 already overflows u32, so both
-are over budget at production security levels without additional jets.
+Circle STARK at production security (~100 bits) now fits within u32
+cost bounds. Groth16 does not, even with Fp jets.
 
 ---
 
 ## 7. Comparative Summary
 
-### By Proof System (Updated with Measured Data)
+### By Proof System (Measured, Optimized)
 
 | Property              | Groth16 (64-bit) | Groth16 (Fp jets) | Circle STARK |
 |-----------------------|-------------------|-------------------|--------------|
@@ -311,10 +320,10 @@ are over budget at production security levels without additional jets.
 | Needs new jets        | No                | 5 Fp jets         | **No**       |
 | Post-quantum          | No                | No                | **Yes**      |
 | Proof size            | **192 bytes**     | **192 bytes**     | 50-100 KB    |
-| Measured cost (mWU)   | >4.3B (overflow)  | >4.3B (overflow)  | 577M (20q) / >4.3B (36q) |
-| Measured exec time    | 1,239s            | 125s              | **6.3s** (20q) / **50s** (36q) |
-| Serialized program    | 126 KB            | ~80 KB            | 99 KB (20q) / 291 KB (36q) |
-| Fits in 400K WU?      | No                | No                | **Closest** (20q: 577M) |
+| Production cost (mWU) | >4.3B (overflow)  | >4.3B (overflow)  | **3,285M**   |
+| Fits in u32?          | No                | No                | **Yes**      |
+| Exec time (prod)      | 1,239s            | 125s              | **35s**      |
+| Serialized program    | 126 KB            | ~80 KB            | 188 KB       |
 
 ### By Execution Environment
 
@@ -369,8 +378,8 @@ make Groth16 fit in a block.
 - SHA-256 Merkle verification uses native `jet::sha_256_ctx_8_*` jets.
 - The Fiat-Shamir channel is just SHA-256 hashing.
 - No new consensus changes needed for Simplicity.
-- The main optimization opportunity (precomputing twiddle inverses) is
-  a code generation improvement, not a protocol change.
+- Precomputing twiddle inverses (a code generation optimization, not a
+  protocol change) brought production within u32 cost bounds.
 
 ### The BitMachine Routing Bottleneck
 
@@ -385,11 +394,11 @@ routing overhead negligible.
 
 ## 9. Recommendations (Updated)
 
-1. **Circle STARK is the most feasible path to on-chain ZK verification
-   in Simplicity today.** At 20 queries / 7 FRI layers (~40-bit FRI
-   security), it costs 577M mWU and fits in 99 KB. With the twiddle
-   inverse optimization, production security (~100-bit) may also fit.
-   No consensus changes needed.
+1. **Circle STARK verification works at production security in
+   Simplicity today.** At 36 queries / 10 FRI layers (~100-bit
+   security with PoW), it costs 3.29B mWU, fits in 188 KB, and
+   requires zero new jets. This is the only proof system that fits
+   within measurable cost bounds at production security.
 
 2. **Groth16 requires pairing-level jets to be practical.** Even with
    Fp jets (10x speedup), the cost overflows u32. The data routing
@@ -407,11 +416,13 @@ routing overhead negligible.
    with just two new opcodes. This is the smallest consensus change
    that unlocks on-chain ZK.
 
-5. **The twiddle inverse optimization should be implemented next.** It
-   would eliminate ~60-70% of the Circle STARK verifier cost by
-   replacing runtime `m31_inv` calls with precomputed constants. This
-   is a code generation change in gen_vectors.py, not a protocol
-   change.
+5. **Further optimization opportunities remain.** The production
+   verifier's 188 KB program size and 192 MB cell usage come from
+   fully unrolling 36 queries. Using `for_while` loops or `array_fold`
+   with witness-provided proof data could reduce program size by ~10x,
+   potentially reducing cost further through smaller combinator DAGs.
+   The dominant remaining cost is SHA-256 Merkle hashing (~2,772
+   hash operations).
 
 ---
 
