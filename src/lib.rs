@@ -604,6 +604,14 @@ pub(crate) mod tests {
     }
 
     #[test]
+    #[ignore] // slow (~100s): run with --ignored
+    fn circle_stark_plonk_verifier() {
+        TestCase::program_file("./examples/circle_stark/plonk_verifier.simf")
+            .with_witness_values(WitnessValues::default())
+            .assert_run_success_with_metrics();
+    }
+
+    #[test]
     fn ctv() {
         TestCase::program_file("./examples/ctv.simf")
             .with_witness_values(WitnessValues::default())

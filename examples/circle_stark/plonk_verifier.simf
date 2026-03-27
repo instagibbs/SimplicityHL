@@ -1,0 +1,568 @@
+/* Fibonacci PLONK Circle STARK verifier */
+/* 8 queries, 6 FRI layers, eval domain 2^7 */
+
+fn m31_add(a: u32, b: u32) -> u32 { let (_, sum): (bool, u32) = jet::add_32(a, b); match jet::le_32(0x7fffffff, sum) { true => { let (_, r): (bool, u32) = jet::subtract_32(sum, 0x7fffffff); r }, false => sum, } }
+fn m31_neg(a: u32) -> u32 { match jet::eq_32(a, 0) { true => 0, false => { let (_, r): (bool, u32) = jet::subtract_32(0x7fffffff, a); r }, } }
+fn m31_sub(a: u32, b: u32) -> u32 { m31_add(a, m31_neg(b)) }
+fn m31_mul(a: u32, b: u32) -> u32 { let prod: u64 = jet::multiply_32(a, b); let (hi, lo): (u32, u32) = <u64>::into(prod); let upper: u32 = jet::left_shift_32(1, hi); let lo_top: u32 = jet::right_shift_32(31, lo); let (_, shifted): (bool, u32) = jet::add_32(upper, lo_top); let lower: u32 = jet::and_32(lo, 0x7fffffff); m31_add(shifted, lower) }
+
+fn m31_inv_step(acc: u32, base: u32, ctr: u8) -> Either<u32, u32> {
+    let acc: u32 = m31_mul(acc, acc);
+    let acc: u32 = match jet::eq_8(ctr, 28) { true => acc, false => m31_mul(acc, base), };
+    match jet::eq_8(ctr, 29) { true => Left(acc), false => Right(acc), }
+}
+fn m31_inv(a: u32) -> u32 { let result: Either<u32, u32> = for_while::<m31_inv_step>(a, a); unwrap_left::<u32>(result) }
+
+fn cm31_add(a: (u32, u32), b: (u32, u32)) -> (u32, u32) { let (a_re, a_im): (u32, u32) = a; let (b_re, b_im): (u32, u32) = b; (m31_add(a_re, b_re), m31_add(a_im, b_im)) }
+fn cm31_sub(a: (u32, u32), b: (u32, u32)) -> (u32, u32) { let (a_re, a_im): (u32, u32) = a; let (b_re, b_im): (u32, u32) = b; (m31_sub(a_re, b_re), m31_sub(a_im, b_im)) }
+fn cm31_neg(a: (u32, u32)) -> (u32, u32) { let (re, im): (u32, u32) = a; (m31_neg(re), m31_neg(im)) }
+fn cm31_mul(a: (u32, u32), b: (u32, u32)) -> (u32, u32) { let (a_re, a_im): (u32, u32) = a; let (b_re, b_im): (u32, u32) = b; (m31_sub(m31_mul(a_re, b_re), m31_mul(a_im, b_im)), m31_add(m31_mul(a_re, b_im), m31_mul(a_im, b_re))) }
+fn cm31_mul_r(a: (u32, u32)) -> (u32, u32) { let (re, im): (u32, u32) = a; (m31_sub(m31_add(re, re), im), m31_add(re, m31_add(im, im))) }
+fn cm31_scale(a: (u32, u32), s: u32) -> (u32, u32) { let (re, im): (u32, u32) = a; (m31_mul(re, s), m31_mul(im, s)) }
+fn cm31_inv(a: (u32, u32)) -> (u32, u32) { let (re, im): (u32, u32) = a; let norm: u32 = m31_add(m31_mul(re, re), m31_mul(im, im)); let inv_norm: u32 = m31_inv(norm); (m31_mul(re, inv_norm), m31_neg(m31_mul(im, inv_norm))) }
+
+type QM31 = ((u32, u32), (u32, u32));
+fn qm31_add(a: QM31, b: QM31) -> QM31 { let (a0, a1): QM31 = a; let (b0, b1): QM31 = b; (cm31_add(a0, b0), cm31_add(a1, b1)) }
+fn qm31_sub(a: QM31, b: QM31) -> QM31 { let (a0, a1): QM31 = a; let (b0, b1): QM31 = b; (cm31_sub(a0, b0), cm31_sub(a1, b1)) }
+fn qm31_mul(a: QM31, b: QM31) -> QM31 { let (a0, a1): QM31 = a; let (b0, b1): QM31 = b; let a0b0: (u32, u32) = cm31_mul(a0, b0); let a1b1: (u32, u32) = cm31_mul(a1, b1); (cm31_add(a0b0, cm31_mul_r(a1b1)), cm31_add(cm31_mul(a0, b1), cm31_mul(a1, b0))) }
+fn qm31_scale(a: QM31, s: u32) -> QM31 { let (a0, a1): QM31 = a; (cm31_scale(a0, s), cm31_scale(a1, s)) }
+fn qm31_inv(a: QM31) -> QM31 { let (a0, a1): QM31 = a; let a0sq: (u32, u32) = cm31_mul(a0, a0); let a1sq: (u32, u32) = cm31_mul(a1, a1); let denom: (u32, u32) = cm31_sub(a0sq, cm31_mul_r(a1sq)); let inv_d: (u32, u32) = cm31_inv(denom); (cm31_mul(a0, inv_d), cm31_neg(cm31_mul(a1, inv_d))) }
+
+fn hash_pair(a: u256, b: u256) -> u256 { let ctx: Ctx8 = jet::sha_256_ctx_8_init(); let ctx: Ctx8 = jet::sha_256_ctx_8_add_32(ctx, a); let ctx: Ctx8 = jet::sha_256_ctx_8_add_32(ctx, b); jet::sha_256_ctx_8_finalize(ctx) }
+fn hash_4m31(a: u32, b: u32, c: u32, d: u32) -> u256 { let ctx: Ctx8 = jet::sha_256_ctx_8_init(); let ctx: Ctx8 = jet::sha_256_ctx_8_add_4(ctx, a); let ctx: Ctx8 = jet::sha_256_ctx_8_add_4(ctx, b); let ctx: Ctx8 = jet::sha_256_ctx_8_add_4(ctx, c); let ctx: Ctx8 = jet::sha_256_ctx_8_add_4(ctx, d); jet::sha_256_ctx_8_finalize(ctx) }
+fn hash_8m31(a: u32, b: u32, c: u32, d: u32, e: u32, f: u32, g: u32, h: u32) -> u256 { let ctx: Ctx8 = jet::sha_256_ctx_8_init(); let ctx: Ctx8 = jet::sha_256_ctx_8_add_4(ctx, a); let ctx: Ctx8 = jet::sha_256_ctx_8_add_4(ctx, b); let ctx: Ctx8 = jet::sha_256_ctx_8_add_4(ctx, c); let ctx: Ctx8 = jet::sha_256_ctx_8_add_4(ctx, d); let ctx: Ctx8 = jet::sha_256_ctx_8_add_4(ctx, e); let ctx: Ctx8 = jet::sha_256_ctx_8_add_4(ctx, f); let ctx: Ctx8 = jet::sha_256_ctx_8_add_4(ctx, g); let ctx: Ctx8 = jet::sha_256_ctx_8_add_4(ctx, h); jet::sha_256_ctx_8_finalize(ctx) }
+fn hash_qm31(v: QM31) -> u256 { let ((a, b), (c, d)): QM31 = v; hash_4m31(a, b, c, d) }
+
+fn get_bit(index: u32, bit: u8) -> bool { let shifted: u32 = jet::right_shift_32(bit, index); let masked: u32 = jet::and_32(shifted, 1); jet::eq_32(masked, 1) }
+fn merkle_step(current: u256, sibling: u256, is_right: bool) -> u256 { match is_right { false => hash_pair(current, sibling), true => hash_pair(sibling, current), } }
+
+fn channel_init() -> u256 { let ctx: Ctx8 = jet::sha_256_ctx_8_init(); let ctx: Ctx8 = jet::sha_256_ctx_8_add_32(ctx, 0x0000000000000000000000000000000000000000000000000000000000000000); jet::sha_256_ctx_8_finalize(ctx) }
+fn channel_mix(state: u256, data: u256) -> u256 { hash_pair(state, data) }
+fn channel_mix_u32(state: u256, val: u32) -> u256 { let ctx: Ctx8 = jet::sha_256_ctx_8_init(); let ctx: Ctx8 = jet::sha_256_ctx_8_add_32(ctx, state); let ctx: Ctx8 = jet::sha_256_ctx_8_add_4(ctx, val); jet::sha_256_ctx_8_finalize(ctx) }
+fn channel_squeeze(state: u256) -> (u256, u256) { let new_state: u256 = channel_mix_u32(state, 0); let random: u256 = channel_mix_u32(state, 1); (new_state, random) }
+fn m31_reduce(raw: u32) -> u32 { let val: u32 = jet::and_32(raw, 0x7fffffff); match jet::eq_32(val, 0x7fffffff) { true => 0, false => val, } }
+fn extract_4_m31(h: u256) -> (u32, u32, u32, u32) { let (h_hi, h_lo): (u128, u128) = <u256>::into(h); let (hh_hi, hh_lo): (u64, u64) = <u128>::into(h_hi); let (w0, w1): (u32, u32) = <u64>::into(hh_hi); let (w2, w3): (u32, u32) = <u64>::into(hh_lo); (m31_reduce(w0), m31_reduce(w1), m31_reduce(w2), m31_reduce(w3)) }
+fn channel_squeeze_qm31(state: u256) -> (u256, QM31) { let (new_state, random): (u256, u256) = channel_squeeze(state); let (w0, w1, w2, w3): (u32, u32, u32, u32) = extract_4_m31(random); (new_state, ((w0, w1), (w2, w3))) }
+fn channel_squeeze_index(state: u256, mask: u32) -> (u256, u32) { let (new_state, random): (u256, u256) = channel_squeeze(state); let (w0, _, _, _): (u32, u32, u32, u32) = extract_4_m31(random); (new_state, jet::and_32(w0, mask)) }
+
+fn apply_twin(zy: u32, fl: u32, fr: u32, ca: (u32, u32), cb: (u32, u32)) -> ((u32, u32), (u32, u32)) {
+    let a_times_y: (u32, u32) = cm31_scale(ca, zy);
+    let nl: (u32, u32) = cm31_add(cm31_sub(cb, a_times_y), (fl, 0));
+    let nr: (u32, u32) = cm31_add(cm31_add(cb, a_times_y), (fr, 0));
+    (nl, nr)
+}
+
+type Sibs = (u256, (u256, (u256, (u256, (u256, (u256, u256))))));
+type Col4 = (u32, u32, u32, u32);
+type Col8 = (u32, u32, u32, u32, u32, u32, u32, u32);
+type TreeData4 = ((u32, u32, u32, u32), (u32, u32, u32, u32), (u256, (u256, (u256, (u256, (u256, (u256, u256)))))), (u256, (u256, (u256, (u256, (u256, (u256, u256)))))));
+type TreeData8 = ((u32, u32, u32, u32, u32, u32, u32, u32), (u32, u32, u32, u32, u32, u32, u32, u32), (u256, (u256, (u256, (u256, (u256, (u256, u256)))))), (u256, (u256, (u256, (u256, (u256, (u256, u256)))))));
+type FriLayer0 = (QM31, u32, (u256, (u256, (u256, (u256, (u256, u256))))));
+type FriLayer1 = (QM31, u32, (u256, (u256, (u256, (u256, u256)))));
+type FriLayer2 = (QM31, u32, (u256, (u256, (u256, u256))));
+type FriLayer3 = (QM31, u32, (u256, (u256, u256)));
+type FriLayer4 = (QM31, u32, (u256, u256));
+type FriLayer5 = (QM31, u32, u256);
+type FriData = ((QM31, u32, (u256, (u256, (u256, (u256, (u256, u256)))))), ((QM31, u32, (u256, (u256, (u256, (u256, u256))))), ((QM31, u32, (u256, (u256, (u256, u256)))), ((QM31, u32, (u256, (u256, u256))), ((QM31, u32, (u256, u256)), (QM31, u32, u256))))));
+type QueryData = (u32, (u32, u32), ((u32, u32, u32, u32), (u32, u32, u32, u32), (u256, (u256, (u256, (u256, (u256, (u256, u256)))))), (u256, (u256, (u256, (u256, (u256, (u256, u256))))))), ((u32, u32, u32, u32, u32, u32, u32, u32), (u32, u32, u32, u32, u32, u32, u32, u32), (u256, (u256, (u256, (u256, (u256, (u256, u256)))))), (u256, (u256, (u256, (u256, (u256, (u256, u256))))))), ((u32, u32, u32, u32), (u32, u32, u32, u32), (u256, (u256, (u256, (u256, (u256, (u256, u256)))))), (u256, (u256, (u256, (u256, (u256, (u256, u256))))))), ((u32, u32, u32, u32), (u32, u32, u32, u32), (u256, (u256, (u256, (u256, (u256, (u256, u256)))))), (u256, (u256, (u256, (u256, (u256, (u256, u256))))))), ((QM31, u32, (u256, (u256, (u256, (u256, (u256, u256)))))), ((QM31, u32, (u256, (u256, (u256, (u256, u256))))), ((QM31, u32, (u256, (u256, (u256, u256)))), ((QM31, u32, (u256, (u256, u256))), ((QM31, u32, (u256, u256)), (QM31, u32, u256)))))));
+
+fn verify_query(qdata: QueryData, acc: bool) -> bool {
+    let (q_idx, q_pt, trace_data, interaction_data, const_data, comp_data, fri_data): (u32, (u32, u32), TreeData4, TreeData8, TreeData4, TreeData4, FriData) = qdata;
+    let (q_px, q_py): (u32, u32) = q_pt;
+    let q_twin_idx: u32 = jet::or_32(q_idx, 0x00000040);
+
+    let (trace_left, trace_twin, trace_path, trace_twin_path): (Col4, Col4, Sibs, Sibs) = trace_data;
+    let (tl_mult, tl_aval, tl_bval, tl_cval): Col4 = trace_left;
+    let (tt_mult, tt_aval, tt_bval, tt_cval): Col4 = trace_twin;
+    // Trace Merkle verification (left)
+    let h: u256 = hash_4m31(tl_mult, tl_aval, tl_bval, tl_cval);
+    let (tp_s0, tp_sr0): (u256, (u256, (u256, (u256, (u256, (u256, u256)))))) = trace_path;
+    let h: u256 = merkle_step(h, tp_s0, get_bit(q_idx, 0));
+    let (tp_s1, tp_sr1): (u256, (u256, (u256, (u256, (u256, u256))))) = tp_sr0;
+    let h: u256 = merkle_step(h, tp_s1, get_bit(q_idx, 1));
+    let (tp_s2, tp_sr2): (u256, (u256, (u256, (u256, u256)))) = tp_sr1;
+    let h: u256 = merkle_step(h, tp_s2, get_bit(q_idx, 2));
+    let (tp_s3, tp_sr3): (u256, (u256, (u256, u256))) = tp_sr2;
+    let h: u256 = merkle_step(h, tp_s3, get_bit(q_idx, 3));
+    let (tp_s4, tp_sr4): (u256, (u256, u256)) = tp_sr3;
+    let h: u256 = merkle_step(h, tp_s4, get_bit(q_idx, 4));
+    let (tp_s5, tp_sr5): (u256, u256) = tp_sr4;
+    let h: u256 = merkle_step(h, tp_s5, get_bit(q_idx, 5));
+    let tp_s6: u256 = tp_sr5;
+    let h: u256 = merkle_step(h, tp_s6, get_bit(q_idx, 6));
+    assert!(jet::eq_256(h, 0xb5bfad54767b43960c222f371bc7edd1b96b4c3b62b5715aad6dc8e10862e57a));
+    // Trace Merkle verification (twin)
+    let h: u256 = hash_4m31(tt_mult, tt_aval, tt_bval, tt_cval);
+    let (ttp_s0, ttp_sr0): (u256, (u256, (u256, (u256, (u256, (u256, u256)))))) = trace_twin_path;
+    let h: u256 = merkle_step(h, ttp_s0, get_bit(q_twin_idx, 0));
+    let (ttp_s1, ttp_sr1): (u256, (u256, (u256, (u256, (u256, u256))))) = ttp_sr0;
+    let h: u256 = merkle_step(h, ttp_s1, get_bit(q_twin_idx, 1));
+    let (ttp_s2, ttp_sr2): (u256, (u256, (u256, (u256, u256)))) = ttp_sr1;
+    let h: u256 = merkle_step(h, ttp_s2, get_bit(q_twin_idx, 2));
+    let (ttp_s3, ttp_sr3): (u256, (u256, (u256, u256))) = ttp_sr2;
+    let h: u256 = merkle_step(h, ttp_s3, get_bit(q_twin_idx, 3));
+    let (ttp_s4, ttp_sr4): (u256, (u256, u256)) = ttp_sr3;
+    let h: u256 = merkle_step(h, ttp_s4, get_bit(q_twin_idx, 4));
+    let (ttp_s5, ttp_sr5): (u256, u256) = ttp_sr4;
+    let h: u256 = merkle_step(h, ttp_s5, get_bit(q_twin_idx, 5));
+    let ttp_s6: u256 = ttp_sr5;
+    let h: u256 = merkle_step(h, ttp_s6, get_bit(q_twin_idx, 6));
+    assert!(jet::eq_256(h, 0xb5bfad54767b43960c222f371bc7edd1b96b4c3b62b5715aad6dc8e10862e57a));
+
+    let (int_left, int_twin, int_path, int_twin_path): (Col8, Col8, Sibs, Sibs) = interaction_data;
+    let (il_0, il_1, il_2, il_3, il_4, il_5, il_6, il_7): Col8 = int_left;
+    let (it_0, it_1, it_2, it_3, it_4, it_5, it_6, it_7): Col8 = int_twin;
+    // Interaction Merkle verification
+    let h: u256 = hash_8m31(il_0, il_1, il_2, il_3, il_4, il_5, il_6, il_7);
+    let (ip_s0, ip_sr0): (u256, (u256, (u256, (u256, (u256, (u256, u256)))))) = int_path;
+    let h: u256 = merkle_step(h, ip_s0, get_bit(q_idx, 0));
+    let (ip_s1, ip_sr1): (u256, (u256, (u256, (u256, (u256, u256))))) = ip_sr0;
+    let h: u256 = merkle_step(h, ip_s1, get_bit(q_idx, 1));
+    let (ip_s2, ip_sr2): (u256, (u256, (u256, (u256, u256)))) = ip_sr1;
+    let h: u256 = merkle_step(h, ip_s2, get_bit(q_idx, 2));
+    let (ip_s3, ip_sr3): (u256, (u256, (u256, u256))) = ip_sr2;
+    let h: u256 = merkle_step(h, ip_s3, get_bit(q_idx, 3));
+    let (ip_s4, ip_sr4): (u256, (u256, u256)) = ip_sr3;
+    let h: u256 = merkle_step(h, ip_s4, get_bit(q_idx, 4));
+    let (ip_s5, ip_sr5): (u256, u256) = ip_sr4;
+    let h: u256 = merkle_step(h, ip_s5, get_bit(q_idx, 5));
+    let ip_s6: u256 = ip_sr5;
+    let h: u256 = merkle_step(h, ip_s6, get_bit(q_idx, 6));
+    assert!(jet::eq_256(h, 0xdfcf4090dd9a73c300524663f4f7cc1cf0e66f4d3c7e1495897086189307b0e0));
+    let h: u256 = hash_8m31(it_0, it_1, it_2, it_3, it_4, it_5, it_6, it_7);
+    let (itp_s0, itp_sr0): (u256, (u256, (u256, (u256, (u256, (u256, u256)))))) = int_twin_path;
+    let h: u256 = merkle_step(h, itp_s0, get_bit(q_twin_idx, 0));
+    let (itp_s1, itp_sr1): (u256, (u256, (u256, (u256, (u256, u256))))) = itp_sr0;
+    let h: u256 = merkle_step(h, itp_s1, get_bit(q_twin_idx, 1));
+    let (itp_s2, itp_sr2): (u256, (u256, (u256, (u256, u256)))) = itp_sr1;
+    let h: u256 = merkle_step(h, itp_s2, get_bit(q_twin_idx, 2));
+    let (itp_s3, itp_sr3): (u256, (u256, (u256, u256))) = itp_sr2;
+    let h: u256 = merkle_step(h, itp_s3, get_bit(q_twin_idx, 3));
+    let (itp_s4, itp_sr4): (u256, (u256, u256)) = itp_sr3;
+    let h: u256 = merkle_step(h, itp_s4, get_bit(q_twin_idx, 4));
+    let (itp_s5, itp_sr5): (u256, u256) = itp_sr4;
+    let h: u256 = merkle_step(h, itp_s5, get_bit(q_twin_idx, 5));
+    let itp_s6: u256 = itp_sr5;
+    let h: u256 = merkle_step(h, itp_s6, get_bit(q_twin_idx, 6));
+    assert!(jet::eq_256(h, 0xdfcf4090dd9a73c300524663f4f7cc1cf0e66f4d3c7e1495897086189307b0e0));
+
+    let (const_left, const_twin, const_path, const_twin_path): (Col4, Col4, Sibs, Sibs) = const_data;
+    let (cl_aw, cl_bw, cl_cw, cl_op): Col4 = const_left;
+    let (ct_aw, ct_bw, ct_cw, ct_op): Col4 = const_twin;
+    let h: u256 = hash_4m31(cl_aw, cl_bw, cl_cw, cl_op);
+    let (cp_s0, cp_sr0): (u256, (u256, (u256, (u256, (u256, (u256, u256)))))) = const_path;
+    let h: u256 = merkle_step(h, cp_s0, get_bit(q_idx, 0));
+    let (cp_s1, cp_sr1): (u256, (u256, (u256, (u256, (u256, u256))))) = cp_sr0;
+    let h: u256 = merkle_step(h, cp_s1, get_bit(q_idx, 1));
+    let (cp_s2, cp_sr2): (u256, (u256, (u256, (u256, u256)))) = cp_sr1;
+    let h: u256 = merkle_step(h, cp_s2, get_bit(q_idx, 2));
+    let (cp_s3, cp_sr3): (u256, (u256, (u256, u256))) = cp_sr2;
+    let h: u256 = merkle_step(h, cp_s3, get_bit(q_idx, 3));
+    let (cp_s4, cp_sr4): (u256, (u256, u256)) = cp_sr3;
+    let h: u256 = merkle_step(h, cp_s4, get_bit(q_idx, 4));
+    let (cp_s5, cp_sr5): (u256, u256) = cp_sr4;
+    let h: u256 = merkle_step(h, cp_s5, get_bit(q_idx, 5));
+    let cp_s6: u256 = cp_sr5;
+    let h: u256 = merkle_step(h, cp_s6, get_bit(q_idx, 6));
+    assert!(jet::eq_256(h, 0x755c31902b627538ee3a385014fae6c4c0ac2c3b397884515bc7750accecd6eb));
+    let h: u256 = hash_4m31(ct_aw, ct_bw, ct_cw, ct_op);
+    let (ctp_s0, ctp_sr0): (u256, (u256, (u256, (u256, (u256, (u256, u256)))))) = const_twin_path;
+    let h: u256 = merkle_step(h, ctp_s0, get_bit(q_twin_idx, 0));
+    let (ctp_s1, ctp_sr1): (u256, (u256, (u256, (u256, (u256, u256))))) = ctp_sr0;
+    let h: u256 = merkle_step(h, ctp_s1, get_bit(q_twin_idx, 1));
+    let (ctp_s2, ctp_sr2): (u256, (u256, (u256, (u256, u256)))) = ctp_sr1;
+    let h: u256 = merkle_step(h, ctp_s2, get_bit(q_twin_idx, 2));
+    let (ctp_s3, ctp_sr3): (u256, (u256, (u256, u256))) = ctp_sr2;
+    let h: u256 = merkle_step(h, ctp_s3, get_bit(q_twin_idx, 3));
+    let (ctp_s4, ctp_sr4): (u256, (u256, u256)) = ctp_sr3;
+    let h: u256 = merkle_step(h, ctp_s4, get_bit(q_twin_idx, 4));
+    let (ctp_s5, ctp_sr5): (u256, u256) = ctp_sr4;
+    let h: u256 = merkle_step(h, ctp_s5, get_bit(q_twin_idx, 5));
+    let ctp_s6: u256 = ctp_sr5;
+    let h: u256 = merkle_step(h, ctp_s6, get_bit(q_twin_idx, 6));
+    assert!(jet::eq_256(h, 0x755c31902b627538ee3a385014fae6c4c0ac2c3b397884515bc7750accecd6eb));
+
+    let (comp_left, comp_twin, comp_path, comp_twin_path): (Col4, Col4, Sibs, Sibs) = comp_data;
+    let (hl_0, hl_1, hl_2, hl_3): Col4 = comp_left;
+    let (ht_0, ht_1, ht_2, ht_3): Col4 = comp_twin;
+    let h: u256 = hash_4m31(hl_0, hl_1, hl_2, hl_3);
+    let (hp_s0, hp_sr0): (u256, (u256, (u256, (u256, (u256, (u256, u256)))))) = comp_path;
+    let h: u256 = merkle_step(h, hp_s0, get_bit(q_idx, 0));
+    let (hp_s1, hp_sr1): (u256, (u256, (u256, (u256, (u256, u256))))) = hp_sr0;
+    let h: u256 = merkle_step(h, hp_s1, get_bit(q_idx, 1));
+    let (hp_s2, hp_sr2): (u256, (u256, (u256, (u256, u256)))) = hp_sr1;
+    let h: u256 = merkle_step(h, hp_s2, get_bit(q_idx, 2));
+    let (hp_s3, hp_sr3): (u256, (u256, (u256, u256))) = hp_sr2;
+    let h: u256 = merkle_step(h, hp_s3, get_bit(q_idx, 3));
+    let (hp_s4, hp_sr4): (u256, (u256, u256)) = hp_sr3;
+    let h: u256 = merkle_step(h, hp_s4, get_bit(q_idx, 4));
+    let (hp_s5, hp_sr5): (u256, u256) = hp_sr4;
+    let h: u256 = merkle_step(h, hp_s5, get_bit(q_idx, 5));
+    let hp_s6: u256 = hp_sr5;
+    let h: u256 = merkle_step(h, hp_s6, get_bit(q_idx, 6));
+    assert!(jet::eq_256(h, 0x3a2809e8fc97f62f1d60332cd6e5e01846d161a168654ee4001dcfe25d1a97d3));
+    let h: u256 = hash_4m31(ht_0, ht_1, ht_2, ht_3);
+    let (htp_s0, htp_sr0): (u256, (u256, (u256, (u256, (u256, (u256, u256)))))) = comp_twin_path;
+    let h: u256 = merkle_step(h, htp_s0, get_bit(q_twin_idx, 0));
+    let (htp_s1, htp_sr1): (u256, (u256, (u256, (u256, (u256, u256))))) = htp_sr0;
+    let h: u256 = merkle_step(h, htp_s1, get_bit(q_twin_idx, 1));
+    let (htp_s2, htp_sr2): (u256, (u256, (u256, (u256, u256)))) = htp_sr1;
+    let h: u256 = merkle_step(h, htp_s2, get_bit(q_twin_idx, 2));
+    let (htp_s3, htp_sr3): (u256, (u256, (u256, u256))) = htp_sr2;
+    let h: u256 = merkle_step(h, htp_s3, get_bit(q_twin_idx, 3));
+    let (htp_s4, htp_sr4): (u256, (u256, u256)) = htp_sr3;
+    let h: u256 = merkle_step(h, htp_s4, get_bit(q_twin_idx, 4));
+    let (htp_s5, htp_sr5): (u256, u256) = htp_sr4;
+    let h: u256 = merkle_step(h, htp_s5, get_bit(q_twin_idx, 5));
+    let htp_s6: u256 = htp_sr5;
+    let h: u256 = merkle_step(h, htp_s6, get_bit(q_twin_idx, 6));
+    assert!(jet::eq_256(h, 0x3a2809e8fc97f62f1d60332cd6e5e01846d161a168654ee4001dcfe25d1a97d3));
+
+    // DEEP quotient: column-line numerators
+    let term1_l: QM31 = ((0, 0), (0, 0));
+    let term1_r: QM31 = ((0, 0), (0, 0));
+    let term2_l: QM31 = ((0, 0), (0, 0));
+    let term2_r: QM31 = ((0, 0), (0, 0));
+    // Column ('trace', 'mult'): alpha^23
+    let (nl, nr): ((u32, u32), (u32, u32)) = apply_twin(q_py, tl_mult, tt_mult, (0x1fc175f2, 0x083f5e8d), (0x63eb637e, 0x51679ab7));
+    let ap: QM31 = ((0x1f95182c, 0x235ed045), (0x677d888f, 0x48acdff8));
+    let cl: QM31 = qm31_mul(ap, (nl, (0, 0)));
+    let cr: QM31 = qm31_mul(ap, (nr, (0, 0)));
+    let term1_l: QM31 = qm31_add(term1_l, cl);
+    let term1_r: QM31 = qm31_add(term1_r, cr);
+    // Column ('trace', 'a_val'): alpha^22
+    let (nl, nr): ((u32, u32), (u32, u32)) = apply_twin(q_py, tl_aval, tt_aval, (0x112427a3, 0x1e756804), (0x720d15a0, 0x4302ed20));
+    let ap: QM31 = ((0x781b098c, 0x11ce9957), (0x3f3e4466, 0x2af6c34e));
+    let cl: QM31 = qm31_mul(ap, (nl, (0, 0)));
+    let cr: QM31 = qm31_mul(ap, (nr, (0, 0)));
+    let term1_l: QM31 = qm31_add(term1_l, cl);
+    let term1_r: QM31 = qm31_add(term1_r, cr);
+    // Column ('trace', 'b_val'): alpha^21
+    let (nl, nr): ((u32, u32), (u32, u32)) = apply_twin(q_py, tl_bval, tt_bval, (0x26e7d74f, 0x4630b0e7), (0x126f1aa0, 0x337d9fa2));
+    let ap: QM31 = ((0x135ab0be, 0x186fecc6), (0x73115e8a, 0x325af5a2));
+    let cl: QM31 = qm31_mul(ap, (nl, (0, 0)));
+    let cr: QM31 = qm31_mul(ap, (nr, (0, 0)));
+    let term1_l: QM31 = qm31_add(term1_l, cl);
+    let term1_r: QM31 = qm31_add(term1_r, cr);
+    // Column ('trace', 'c_val'): alpha^20
+    let (nl, nr): ((u32, u32), (u32, u32)) = apply_twin(q_py, tl_cval, tt_cval, (0x26afdaee, 0x450a2743), (0x009ea852, 0x7db45a85));
+    let ap: QM31 = ((0x46a64dc1, 0x2cd1ffd5), (0x3a00ed0b, 0x30a92030));
+    let cl: QM31 = qm31_mul(ap, (nl, (0, 0)));
+    let cr: QM31 = qm31_mul(ap, (nr, (0, 0)));
+    let term1_l: QM31 = qm31_add(term1_l, cl);
+    let term1_r: QM31 = qm31_add(term1_r, cr);
+    // Column ('logab', 0): alpha^19
+    let (nl, nr): ((u32, u32), (u32, u32)) = apply_twin(q_py, il_0, it_0, (0x595f893b, 0x3ce9bc07), (0x0f3b7107, 0x51bfbda3));
+    let ap: QM31 = ((0x47fb4b68, 0x062f1815), (0x20845970, 0x7a16c6c1));
+    let cl: QM31 = qm31_mul(ap, (nl, (0, 0)));
+    let cr: QM31 = qm31_mul(ap, (nr, (0, 0)));
+    let term1_l: QM31 = qm31_add(term1_l, cl);
+    let term1_r: QM31 = qm31_add(term1_r, cr);
+    // Column ('logab', 1): alpha^18
+    let (nl, nr): ((u32, u32), (u32, u32)) = apply_twin(q_py, il_1, it_1, (0x02572658, 0x5f6f783c), (0x19dde324, 0x40a79999));
+    let ap: QM31 = ((0x1527b23e, 0x3ff86503), (0x0921dfbc, 0x60570700));
+    let cl: QM31 = qm31_mul(ap, (nl, (0, 0)));
+    let cr: QM31 = qm31_mul(ap, (nr, (0, 0)));
+    let term1_l: QM31 = qm31_add(term1_l, cl);
+    let term1_r: QM31 = qm31_add(term1_r, cr);
+    // Column ('logab', 2): alpha^17
+    let (nl, nr): ((u32, u32), (u32, u32)) = apply_twin(q_py, il_2, it_2, (0x08a8932f, 0x6ffceb8f), (0x080a544c, 0x49dafeb2));
+    let ap: QM31 = ((0x1ebf640b, 0x07d27ae8), (0x4cb95a69, 0x40fa05ac));
+    let cl: QM31 = qm31_mul(ap, (nl, (0, 0)));
+    let cr: QM31 = qm31_mul(ap, (nr, (0, 0)));
+    let term1_l: QM31 = qm31_add(term1_l, cl);
+    let term1_r: QM31 = qm31_add(term1_r, cr);
+    // Column ('logab', 3): alpha^16
+    let (nl, nr): ((u32, u32), (u32, u32)) = apply_twin(q_py, il_3, it_3, (0x284c403c, 0x3b761879), (0x20c5aac2, 0x4618b338));
+    let ap: QM31 = ((0x377f7c75, 0x4ae02b67), (0x59cebf9c, 0x2573dd4b));
+    let cl: QM31 = qm31_mul(ap, (nl, (0, 0)));
+    let cr: QM31 = qm31_mul(ap, (nr, (0, 0)));
+    let term1_l: QM31 = qm31_add(term1_l, cl);
+    let term1_r: QM31 = qm31_add(term1_r, cr);
+    // Column ('cum', 0): alpha^15
+    let (nl, nr): ((u32, u32), (u32, u32)) = apply_twin(q_py, il_4, it_4, (0x24d03259, 0x6f3e8783), (0x3b416d54, 0x19811263));
+    let ap: QM31 = ((0x2265c9b3, 0x42724601), (0x410fefd6, 0x158ec05c));
+    let cl: QM31 = qm31_mul(ap, (nl, (0, 0)));
+    let cr: QM31 = qm31_mul(ap, (nr, (0, 0)));
+    let term1_l: QM31 = qm31_add(term1_l, cl);
+    let term1_r: QM31 = qm31_add(term1_r, cr);
+    // Column ('cum', 1): alpha^14
+    let (nl, nr): ((u32, u32), (u32, u32)) = apply_twin(q_py, il_5, it_5, (0x1e1e6d12, 0x19b74c85), (0x159a7d38, 0x2a0613b2));
+    let ap: QM31 = ((0x576d34e3, 0x5bc669b2), (0x54656120, 0x30300415));
+    let cl: QM31 = qm31_mul(ap, (nl, (0, 0)));
+    let cr: QM31 = qm31_mul(ap, (nr, (0, 0)));
+    let term1_l: QM31 = qm31_add(term1_l, cl);
+    let term1_r: QM31 = qm31_add(term1_r, cr);
+    // Column ('cum', 2): alpha^13
+    let (nl, nr): ((u32, u32), (u32, u32)) = apply_twin(q_py, il_6, it_6, (0x57e4d86f, 0x426b6026), (0x242271ca, 0x4bebda8e));
+    let ap: QM31 = ((0x3fb3058f, 0x5d49c8df), (0x779a8652, 0x67563bc7));
+    let cl: QM31 = qm31_mul(ap, (nl, (0, 0)));
+    let cr: QM31 = qm31_mul(ap, (nr, (0, 0)));
+    let term1_l: QM31 = qm31_add(term1_l, cl);
+    let term1_r: QM31 = qm31_add(term1_r, cr);
+    // Column ('cum', 3): alpha^12
+    let (nl, nr): ((u32, u32), (u32, u32)) = apply_twin(q_py, il_7, it_7, (0x2eae9333, 0x035ca1ac), (0x6459ef8c, 0x1b62c8ea));
+    let ap: QM31 = ((0x2d5d717e, 0x394c32c1), (0x135dce0b, 0x17b2f6b5));
+    let cl: QM31 = qm31_mul(ap, (nl, (0, 0)));
+    let cr: QM31 = qm31_mul(ap, (nr, (0, 0)));
+    let term1_l: QM31 = qm31_add(term1_l, cl);
+    let term1_r: QM31 = qm31_add(term1_r, cr);
+    // Column ('cum_shifted', 0): alpha^11
+    let (nl, nr): ((u32, u32), (u32, u32)) = apply_twin(q_py, il_4, it_4, (0x40c9ef90, 0x596b3262), (0x2ed753cd, 0x6f191be3));
+    let ap: QM31 = ((0x3f7e551b, 0x347df338), (0x67bb332b, 0x4fb95da1));
+    let cl: QM31 = qm31_mul(ap, (nl, (0, 0)));
+    let cr: QM31 = qm31_mul(ap, (nr, (0, 0)));
+    let term2_l: QM31 = qm31_add(term2_l, cl);
+    let term2_r: QM31 = qm31_add(term2_r, cr);
+    // Column ('cum_shifted', 1): alpha^10
+    let (nl, nr): ((u32, u32), (u32, u32)) = apply_twin(q_py, il_5, it_5, (0x0c497c72, 0x4b3735ef), (0x3ef662c9, 0x0c9aa42d));
+    let ap: QM31 = ((0x7413a3d8, 0x0c0ef76b), (0x35a48db7, 0x58b9f631));
+    let cl: QM31 = qm31_mul(ap, (nl, (0, 0)));
+    let cr: QM31 = qm31_mul(ap, (nr, (0, 0)));
+    let term2_l: QM31 = qm31_add(term2_l, cl);
+    let term2_r: QM31 = qm31_add(term2_r, cr);
+    // Column ('cum_shifted', 2): alpha^9
+    let (nl, nr): ((u32, u32), (u32, u32)) = apply_twin(q_py, il_6, it_6, (0x21bc821d, 0x53890c6f), (0x6588b861, 0x78aa1dda));
+    let ap: QM31 = ((0x63f13c6c, 0x6aaf82c1), (0x2e6a2cd0, 0x1bee0226));
+    let cl: QM31 = qm31_mul(ap, (nl, (0, 0)));
+    let cr: QM31 = qm31_mul(ap, (nr, (0, 0)));
+    let term2_l: QM31 = qm31_add(term2_l, cl);
+    let term2_r: QM31 = qm31_add(term2_r, cr);
+    // Column ('cum_shifted', 3): alpha^8
+    let (nl, nr): ((u32, u32), (u32, u32)) = apply_twin(q_py, il_7, it_7, (0x644f308d, 0x60965b85), (0x047a36cc, 0x12619e77));
+    let ap: QM31 = ((0x5faaf38a, 0x3f7bed68), (0x64f77aa4, 0x6ca401c6));
+    let cl: QM31 = qm31_mul(ap, (nl, (0, 0)));
+    let cr: QM31 = qm31_mul(ap, (nr, (0, 0)));
+    let term2_l: QM31 = qm31_add(term2_l, cl);
+    let term2_r: QM31 = qm31_add(term2_r, cr);
+    // Column ('const', 'a_wire'): alpha^7
+    let (nl, nr): ((u32, u32), (u32, u32)) = apply_twin(q_py, cl_aw, ct_aw, (0x33b86602, 0x1fff82ef), (0x0145a513, 0x3228aa50));
+    let ap: QM31 = ((0x3b17a7f6, 0x0f86ef28), (0x73fb4647, 0x4564fbf0));
+    let cl: QM31 = qm31_mul(ap, (nl, (0, 0)));
+    let cr: QM31 = qm31_mul(ap, (nr, (0, 0)));
+    let term1_l: QM31 = qm31_add(term1_l, cl);
+    let term1_r: QM31 = qm31_add(term1_r, cr);
+    // Column ('const', 'b_wire'): alpha^6
+    let (nl, nr): ((u32, u32), (u32, u32)) = apply_twin(q_py, cl_bw, ct_bw, (0x225c41fe, 0x00639147), (0x7d681d22, 0x395c7813));
+    let ap: QM31 = ((0x0be6c72f, 0x226fd5ad), (0x056cdb4c, 0x1ac2c9d6));
+    let cl: QM31 = qm31_mul(ap, (nl, (0, 0)));
+    let cr: QM31 = qm31_mul(ap, (nr, (0, 0)));
+    let term1_l: QM31 = qm31_add(term1_l, cl);
+    let term1_r: QM31 = qm31_add(term1_r, cr);
+    // Column ('const', 'c_wire'): alpha^5
+    let (nl, nr): ((u32, u32), (u32, u32)) = apply_twin(q_py, cl_cw, ct_cw, (0x11001dfa, 0x60c79f9e), (0x798a9532, 0x409045d6));
+    let ap: QM31 = ((0x10008647, 0x77a7832c), (0x5ef50886, 0x72b2ea80));
+    let cl: QM31 = qm31_mul(ap, (nl, (0, 0)));
+    let cr: QM31 = qm31_mul(ap, (nr, (0, 0)));
+    let term1_l: QM31 = qm31_add(term1_l, cl);
+    let term1_r: QM31 = qm31_add(term1_r, cr);
+    // Column ('const', 'op'): alpha^4
+    let (nl, nr): ((u32, u32), (u32, u32)) = apply_twin(q_py, cl_op, ct_op, (0x6ea3dbfb, 0x60640e57), (0x7c22780f, 0x0733cdc3));
+    let ap: QM31 = ((0x3141907e, 0x375a8176), (0x2b9f189c, 0x7faf66d3));
+    let cl: QM31 = qm31_mul(ap, (nl, (0, 0)));
+    let cr: QM31 = qm31_mul(ap, (nr, (0, 0)));
+    let term1_l: QM31 = qm31_add(term1_l, cl);
+    let term1_r: QM31 = qm31_add(term1_r, cr);
+    // Column ('comp', 0): alpha^3
+    let (nl, nr): ((u32, u32), (u32, u32)) = apply_twin(q_py, hl_0, ht_0, (0x00000000, 0x00000000), (0x2308d6f6, 0x00000000));
+    let ap: QM31 = ((0x0cc19fe1, 0x0ce37062), (0x355a2e8d, 0x5bd0cd10));
+    let cl: QM31 = qm31_mul(ap, (nl, (0, 0)));
+    let cr: QM31 = qm31_mul(ap, (nr, (0, 0)));
+    let term1_l: QM31 = qm31_add(term1_l, cl);
+    let term1_r: QM31 = qm31_add(term1_r, cr);
+    // Column ('comp', 1): alpha^2
+    let (nl, nr): ((u32, u32), (u32, u32)) = apply_twin(q_py, hl_1, ht_1, (0x00000000, 0x00000000), (0x63037b33, 0x00000000));
+    let ap: QM31 = ((0x5c3e297a, 0x68aa3df4), (0x5d4c4f22, 0x647bfd9e));
+    let cl: QM31 = qm31_mul(ap, (nl, (0, 0)));
+    let cr: QM31 = qm31_mul(ap, (nr, (0, 0)));
+    let term1_l: QM31 = qm31_add(term1_l, cl);
+    let term1_r: QM31 = qm31_add(term1_r, cr);
+    // Column ('comp', 2): alpha^1
+    let (nl, nr): ((u32, u32), (u32, u32)) = apply_twin(q_py, hl_2, ht_2, (0x00000000, 0x00000000), (0x558d219c, 0x00000000));
+    let ap: QM31 = ((0x08e4dd50, 0x63abc66a), (0x65d4e35f, 0x362f8399));
+    let cl: QM31 = qm31_mul(ap, (nl, (0, 0)));
+    let cr: QM31 = qm31_mul(ap, (nr, (0, 0)));
+    let term1_l: QM31 = qm31_add(term1_l, cl);
+    let term1_r: QM31 = qm31_add(term1_r, cr);
+    // Column ('comp', 3): alpha^0
+    let (nl, nr): ((u32, u32), (u32, u32)) = apply_twin(q_py, hl_3, ht_3, (0x00000000, 0x00000000), (0x4ecb98d9, 0x00000000));
+    let ap: QM31 = ((0x00000001, 0x00000000), (0x00000000, 0x00000000));
+    let cl: QM31 = qm31_mul(ap, (nl, (0, 0)));
+    let cr: QM31 = qm31_mul(ap, (nr, (0, 0)));
+    let term1_l: QM31 = qm31_add(term1_l, cl);
+    let term1_r: QM31 = qm31_add(term1_r, cr);
+
+    // Pair vanishing denominators
+    let pv_a: (u32, u32) = (0x5454592b, 0x7b7c86e2);
+    let pv_b: (u32, u32) = (0x08a7191e, 0x11a20273);
+    let t_oods: (u32, u32) = cm31_add(pv_b, (q_px, 0));
+    let s_oods: (u32, u32) = cm31_scale(pv_a, q_py);
+    let dinv_oods_l: (u32, u32) = cm31_inv(cm31_sub(t_oods, s_oods));
+    let dinv_oods_r: (u32, u32) = cm31_inv(cm31_add(t_oods, s_oods));
+    let pvs_a: (u32, u32) = (0x3ed4ad91, 0x622d5566);
+    let pvs_b: (u32, u32) = (0x039b68ae, 0x30ef8540);
+    let t_shift: (u32, u32) = cm31_add(pvs_b, (q_px, 0));
+    let s_shift: (u32, u32) = cm31_scale(pvs_a, q_py);
+    let dinv_shift_l: (u32, u32) = cm31_inv(cm31_sub(t_shift, s_shift));
+    let dinv_shift_r: (u32, u32) = cm31_inv(cm31_add(t_shift, s_shift));
+
+    // Quotient assembly
+    let q_l: QM31 = qm31_add(qm31_mul(term1_l, (dinv_oods_l, (0, 0))), qm31_mul(term2_l, (dinv_shift_l, (0, 0))));
+    let q_r: QM31 = qm31_add(qm31_mul(term1_r, (dinv_oods_r, (0, 0))), qm31_mul(term2_r, (dinv_shift_r, (0, 0))));
+
+    // Circle-to-line fold
+    let inv_py: u32 = m31_inv(q_py);
+    let f0: QM31 = qm31_add(q_l, q_r);
+    let f1: QM31 = qm31_scale(qm31_sub(q_l, q_r), inv_py);
+    let cpa: QM31 = ((0x69bec7ae, 0x658dc4ba), (0x5a259ea5, 0x52f26408));
+    let expected_fri0: QM31 = qm31_add(f0, qm31_mul(cpa, f1));
+
+    let (fl0, fri_rest_0): (FriLayer0, ((QM31, u32, (u256, (u256, (u256, (u256, u256))))), ((QM31, u32, (u256, (u256, (u256, u256)))), ((QM31, u32, (u256, (u256, u256))), ((QM31, u32, (u256, u256)), (QM31, u32, u256)))))) = fri_data;
+    let (fv0, fi0, fsibs0): (QM31, u32, (u256, (u256, (u256, (u256, (u256, u256)))))) = fl0;
+    let h: u256 = hash_qm31(fv0);
+    let (fs0_0, fsr0_0): (u256, (u256, (u256, (u256, (u256, u256))))) = fsibs0;
+    let h: u256 = merkle_step(h, fs0_0, get_bit(fi0, 0));
+    let (fs0_1, fsr0_1): (u256, (u256, (u256, (u256, u256)))) = fsr0_0;
+    let h: u256 = merkle_step(h, fs0_1, get_bit(fi0, 1));
+    let (fs0_2, fsr0_2): (u256, (u256, (u256, u256))) = fsr0_1;
+    let h: u256 = merkle_step(h, fs0_2, get_bit(fi0, 2));
+    let (fs0_3, fsr0_3): (u256, (u256, u256)) = fsr0_2;
+    let h: u256 = merkle_step(h, fs0_3, get_bit(fi0, 3));
+    let (fs0_4, fsr0_4): (u256, u256) = fsr0_3;
+    let h: u256 = merkle_step(h, fs0_4, get_bit(fi0, 4));
+    let fs0_5: u256 = fsr0_4;
+    let h: u256 = merkle_step(h, fs0_5, get_bit(fi0, 5));
+    assert!(jet::eq_256(h, 0x541b709240d3afcb3e05146f3f649f5ad1f20ce8e5c86d31e428585128fc5a65));
+    let (fl1, fri_rest_1): (FriLayer1, ((QM31, u32, (u256, (u256, (u256, u256)))), ((QM31, u32, (u256, (u256, u256))), ((QM31, u32, (u256, u256)), (QM31, u32, u256))))) = fri_rest_0;
+    let (fv1, fi1, fsibs1): (QM31, u32, (u256, (u256, (u256, (u256, u256))))) = fl1;
+    let h: u256 = hash_qm31(fv1);
+    let (fs1_0, fsr1_0): (u256, (u256, (u256, (u256, u256)))) = fsibs1;
+    let h: u256 = merkle_step(h, fs1_0, get_bit(fi1, 0));
+    let (fs1_1, fsr1_1): (u256, (u256, (u256, u256))) = fsr1_0;
+    let h: u256 = merkle_step(h, fs1_1, get_bit(fi1, 1));
+    let (fs1_2, fsr1_2): (u256, (u256, u256)) = fsr1_1;
+    let h: u256 = merkle_step(h, fs1_2, get_bit(fi1, 2));
+    let (fs1_3, fsr1_3): (u256, u256) = fsr1_2;
+    let h: u256 = merkle_step(h, fs1_3, get_bit(fi1, 3));
+    let fs1_4: u256 = fsr1_3;
+    let h: u256 = merkle_step(h, fs1_4, get_bit(fi1, 4));
+    assert!(jet::eq_256(h, 0x4eb0673b9f8be8d4230cace7632cb5b98d50f52a1e830f688ecbd41f80fde4c0));
+    let (fl2, fri_rest_2): (FriLayer2, ((QM31, u32, (u256, (u256, u256))), ((QM31, u32, (u256, u256)), (QM31, u32, u256)))) = fri_rest_1;
+    let (fv2, fi2, fsibs2): (QM31, u32, (u256, (u256, (u256, u256)))) = fl2;
+    let h: u256 = hash_qm31(fv2);
+    let (fs2_0, fsr2_0): (u256, (u256, (u256, u256))) = fsibs2;
+    let h: u256 = merkle_step(h, fs2_0, get_bit(fi2, 0));
+    let (fs2_1, fsr2_1): (u256, (u256, u256)) = fsr2_0;
+    let h: u256 = merkle_step(h, fs2_1, get_bit(fi2, 1));
+    let (fs2_2, fsr2_2): (u256, u256) = fsr2_1;
+    let h: u256 = merkle_step(h, fs2_2, get_bit(fi2, 2));
+    let fs2_3: u256 = fsr2_2;
+    let h: u256 = merkle_step(h, fs2_3, get_bit(fi2, 3));
+    assert!(jet::eq_256(h, 0xd0f97a323b0ea98fb4823a2b2e29b639ead321c24010811503651f2bb8c678dc));
+    let (fl3, fri_rest_3): (FriLayer3, ((QM31, u32, (u256, u256)), (QM31, u32, u256))) = fri_rest_2;
+    let (fv3, fi3, fsibs3): (QM31, u32, (u256, (u256, u256))) = fl3;
+    let h: u256 = hash_qm31(fv3);
+    let (fs3_0, fsr3_0): (u256, (u256, u256)) = fsibs3;
+    let h: u256 = merkle_step(h, fs3_0, get_bit(fi3, 0));
+    let (fs3_1, fsr3_1): (u256, u256) = fsr3_0;
+    let h: u256 = merkle_step(h, fs3_1, get_bit(fi3, 1));
+    let fs3_2: u256 = fsr3_1;
+    let h: u256 = merkle_step(h, fs3_2, get_bit(fi3, 2));
+    assert!(jet::eq_256(h, 0x6bc224aaeb2a603975b6a45bf49845ce5395e6d751834d039abcb0f98c700a92));
+    let (fl4, fri_rest_4): (FriLayer4, (QM31, u32, u256)) = fri_rest_3;
+    let (fv4, fi4, fsibs4): (QM31, u32, (u256, u256)) = fl4;
+    let h: u256 = hash_qm31(fv4);
+    let (fs4_0, fsr4_0): (u256, u256) = fsibs4;
+    let h: u256 = merkle_step(h, fs4_0, get_bit(fi4, 0));
+    let fs4_1: u256 = fsr4_0;
+    let h: u256 = merkle_step(h, fs4_1, get_bit(fi4, 1));
+    assert!(jet::eq_256(h, 0xccb86828bc358644dcd5e3e5d4c35905e8edd00d8d7c8bc6c1ba7a0e34fd429b));
+    let fl5: FriLayer5 = fri_rest_4;
+    let (fv5, fi5, fsibs5): (QM31, u32, u256) = fl5;
+    let h: u256 = hash_qm31(fv5);
+    let fs5_0: u256 = fsibs5;
+    let h: u256 = merkle_step(h, fs5_0, get_bit(fi5, 0));
+    assert!(jet::eq_256(h, 0x9693387f554dc65f9c0bdcd037cf69e70c211fa697b46558ab0744d1c896f6c3));
+    // Verify DEEP quotient matches FRI entry
+    let ((ef_a, ef_b), (ef_c, ef_d)): QM31 = expected_fri0;
+    let ((fv_a, fv_b), (fv_c, fv_d)): QM31 = fv0;
+    assert!(jet::eq_32(ef_a, fv_a));
+    assert!(jet::eq_32(ef_b, fv_b));
+    assert!(jet::eq_32(ef_c, fv_c));
+    assert!(jet::eq_32(ef_d, fv_d));
+
+    acc
+}
+
+fn main() {
+    let state: u256 = channel_init();
+    let state: u256 = channel_mix(state, 0xb5bfad54767b43960c222f371bc7edd1b96b4c3b62b5715aad6dc8e10862e57a);
+    let (state, _z): (u256, QM31) = channel_squeeze_qm31(state);
+    let (state, _alpha): (u256, QM31) = channel_squeeze_qm31(state);
+    let state: u256 = channel_mix(state, 0xdfcf4090dd9a73c300524663f4f7cc1cf0e66f4d3c7e1495897086189307b0e0);
+    let state: u256 = channel_mix(state, 0x755c31902b627538ee3a385014fae6c4c0ac2c3b397884515bc7750accecd6eb);
+    let (state, _rho): (u256, QM31) = channel_squeeze_qm31(state);
+    let state: u256 = channel_mix(state, 0x3a2809e8fc97f62f1d60332cd6e5e01846d161a168654ee4001dcfe25d1a97d3);
+    let (state, _oods_t): (u256, QM31) = channel_squeeze_qm31(state);
+    let state: u256 = channel_mix(state, 0xabb89a96d923dda0070b393da653b831b1f303c0c9bf26b93b672d24f91e665c);
+    let state: u256 = channel_mix(state, 0x0c79b28113dcfaf07e9f460ced82b3002e3e82b0a6bc47d619c978bdae70bdda);
+    let state: u256 = channel_mix(state, 0xa9f0f72253ed143b110321ff240227bea6e4ef076dff772a58872cf9f38bfe1b);
+    let state: u256 = channel_mix(state, 0x1a7cda4798c84fe0a2d657171878530cbb922e4ab2220db9ddef261cdac3212e);
+    let state: u256 = channel_mix(state, 0xdcffd1200fc1411ae2c3659667b21dbdec3d6bc68dd9d9dc48f2ebb564047485);
+    let state: u256 = channel_mix(state, 0xdde5ac6f10b6fc9a5b415486c707f7b4d211671f39321d2bb667c50931c13fcc);
+    let state: u256 = channel_mix(state, 0x778e68279f0488033e83c1a5519373ffd292cf1ae425fff61538733644aa6b23);
+    let state: u256 = channel_mix(state, 0x6049d31faf672ec415e69516dc389c9b48dd1db4a07bde985fe3d69b6bccf10b);
+    let state: u256 = channel_mix(state, 0xb2b5b3fd40a1cd372e36f697c6062c3faa24dc0e103e27a8e262990e1557f36f);
+    let state: u256 = channel_mix(state, 0x11d1444f0c4ae357f18f6564dce132d9c746192e1e1dd82dfc96d130fc4cb519);
+    let state: u256 = channel_mix(state, 0x79da2d2eb51e6a0fa49c6ec767900df49c97f9daa668921995ead6d0586444e7);
+    let state: u256 = channel_mix(state, 0xf550d5f11fc51c647aa7acfa8571d523d937b0c51ffe2175389893ff7f49e172);
+    let state: u256 = channel_mix(state, 0xcb69dda04b39b1ae14eef8ab6e4bf95662f091e2c2ca9ee35019618bbbfbb051);
+    let state: u256 = channel_mix(state, 0xe4e9216a469a15999e00c37d99b155b0bd8170bf4bbfca83ac3c8d5c99aecc01);
+    let state: u256 = channel_mix(state, 0xfdd66f2d7383b8e8274981aa22c3144235854c540fc1438cd43439796730b4a7);
+    let state: u256 = channel_mix(state, 0x52e39fa820847418842c817814b62caaf3259fc4094a6c2e3be32187410c5d45);
+    let state: u256 = channel_mix(state, 0x09793bef15f96af9dcd26b71870e515579c122929afadefaa6d85be7f04fbfaf);
+    let state: u256 = channel_mix(state, 0x398400dfebc7a86519c39941e85bd961840e3e927e30e770e9b1c1aa980bb648);
+    let state: u256 = channel_mix(state, 0x08525aaff20e63b9ef6a153789f3f30774102b88636580b092e71b8074f55d98);
+    let state: u256 = channel_mix(state, 0xe17b5cb6c19076beea03bd48da4fed0741c659fabe023a4c0871bb2542085b4a);
+    let state: u256 = channel_mix(state, 0x1977e12f03be57bc45228cbf48598d72c3b9f9a9403c401c52b44656609b4980);
+    let state: u256 = channel_mix(state, 0x91da0a386a2ebfd9cec16293c610baade2ccaebc99ee1e8aee6498d4fd8bf48d);
+    let state: u256 = channel_mix(state, 0x96bf115d7e343616f289e56f7e6b9bfef873d980a3f041546317742abe80cab1);
+    let state: u256 = channel_mix(state, 0xc81f7fce84679daf0e2a01a4d7d6d9e60577325d90f2bf69f4936688c49f09a5);
+    let (state, _lba): (u256, QM31) = channel_squeeze_qm31(state);
+    let (state, _cpa): (u256, QM31) = channel_squeeze_qm31(state);
+    let (state, _fa0): (u256, QM31) = channel_squeeze_qm31(state);
+    let state: u256 = channel_mix(state, 0x541b709240d3afcb3e05146f3f649f5ad1f20ce8e5c86d31e428585128fc5a65);
+    let (state, _fa1): (u256, QM31) = channel_squeeze_qm31(state);
+    let state: u256 = channel_mix(state, 0x4eb0673b9f8be8d4230cace7632cb5b98d50f52a1e830f688ecbd41f80fde4c0);
+    let (state, _fa2): (u256, QM31) = channel_squeeze_qm31(state);
+    let state: u256 = channel_mix(state, 0xd0f97a323b0ea98fb4823a2b2e29b639ead321c24010811503651f2bb8c678dc);
+    let (state, _fa3): (u256, QM31) = channel_squeeze_qm31(state);
+    let state: u256 = channel_mix(state, 0x6bc224aaeb2a603975b6a45bf49845ce5395e6d751834d039abcb0f98c700a92);
+    let (state, _fa4): (u256, QM31) = channel_squeeze_qm31(state);
+    let state: u256 = channel_mix(state, 0xccb86828bc358644dcd5e3e5d4c35905e8edd00d8d7c8bc6c1ba7a0e34fd429b);
+    let (state, _fa5): (u256, QM31) = channel_squeeze_qm31(state);
+    let state: u256 = channel_mix(state, 0x9693387f554dc65f9c0bdcd037cf69e70c211fa697b46558ab0744d1c896f6c3);
+    let state: u256 = channel_mix(state, 0x09a84e3deed2469d0aee529b954fd1584cb72a13ce3bb6544a940cb08c74b469);
+    let (state, _qi0): (u256, u32) = channel_squeeze_index(state, 0x0000007f);
+    let (state, _qi1): (u256, u32) = channel_squeeze_index(state, 0x0000007f);
+    let (state, _qi2): (u256, u32) = channel_squeeze_index(state, 0x0000007f);
+    let (state, _qi3): (u256, u32) = channel_squeeze_index(state, 0x0000007f);
+    let (state, _qi4): (u256, u32) = channel_squeeze_index(state, 0x0000007f);
+    let (state, _qi5): (u256, u32) = channel_squeeze_index(state, 0x0000007f);
+    let (state, _qi6): (u256, u32) = channel_squeeze_index(state, 0x0000007f);
+    let (state, _qi7): (u256, u32) = channel_squeeze_index(state, 0x0000007f);
+
+    let queries: [QueryData; 8] = [
+        (41, (0x4126f459, 0x26a8bf42), ((0x5055c79f, 0x19a162a6, 0x53eec4cd, 0x360847c0), (0x36a0caee, 0x09106b4d, 0x0dada55d, 0x4adf2362), (0xd4b18bfb58ee747fd6c7da9a4e84a481d50488f5f8e64d5b6f559e5eac9394cd, (0x61811406135f83d05d75ef5d03a95c228df24f355ef061332d67c047004b6d37, (0x7331437f4c088e54e920a72445bed3108ffcb1e3a2f30889746074f12e8cbc3b, (0x2d2f78eb4af3ea58ac955f05011604cc91eb553d9a304629a8bb217b9ca122b6, (0x4cb3e7ac51926ed0b6e989b5fe401b076648794aca871165920345ab10caa381, (0xbe6023bda0226c6760838fe041b87c74d3cfbc8ee2245640cd32bbdcfa47df8c, 0x6bba3bccaa22ce8f3aa3962b3daa63eca6d06aff90352d10a66e8ac5b49e4a7d)))))), (0xf1f9fb89e23f013c0a42d4932ea7dd6e3d4d0aac1c63b802136ddec49a15c15f, (0x530ff1b3776942c5dbee0ac3665391ffa821ed95428b38a7c277009fc4bd4aec, (0x71bb37aa2d23897f71cc199b530da517f95daf64047fa9ce21f511d1c8f8a689, (0x0b24b6cd5c0bae4ba2563b9f759bc3a6e486507b5c73d37e5270bc11456a1998, (0x88dbaa52d4064bdc0105865500f0a4e07423fe560dd38f361abd1ff4a1cc802e, (0x34003c9111b9a6396276fbc509a55858fd5478b8d05de3b2d2af7084a2ce887f, 0xf1e938a993851b20670342b89d0160ad8feff2a6c0ca8e4e03fd1aed6e2cbeb4))))))), ((0x45798285, 0x03be4f6f, 0x01018824, 0x038a7d54, 0x135c2a83, 0x1dbc324e, 0x24ea7471, 0x419d7787), (0x790a5c7b, 0x5964580c, 0x3fae1e4e, 0x24ca2eef, 0x447450af, 0x2f1a0f53, 0x59a37139, 0x0f526645), (0xf1c3c48e2fa7c847b9ef14d1f8ef4bdb11cf4887976da67136429e84f9bdf276, (0xffa3ab4ace687ee7937da1e2139f92d681364672f7458c7518bd920f9652b524, (0x8642045b29fc8548fd2863a325d97672b99a8fde2e6f8284a829ac82b2a0d44f, (0x8093e33e459352bd94bc2ee85f313e27cbbccb752092f46f39eb23c2e9dd77ce, (0x3116b9a3cd613e16b70d86da4701c47f29e149bc68644e0f228b62c71782717c, (0xac3abb1b7ad22e1fc1cc274a3bd04833a161bf6ead0d30bb185024b0d68e81a9, 0xf2a78d3635564e4dd0372040317872a4eb1e8501405126d35331ef4bde1461ce)))))), (0x111a9cb3b04c0247a2cb02e254034683c973afd50a4bd23e9be4e654cf212331, (0x748a1dcb2b773d5cc95946ddff6dbef21790c1530aeddfa63fcdc8edd0f8197c, (0xb359411ed8b0612e93d86edd23531fa9caa1734b8cd2b47ca1c34ad9f1a7e3ea, (0xff58be097b23f806f0c52291e59b256d38a22652114b3ac8af8f91d4a3e75038, (0x0d9cfcac892af6d14d143e1bc7bdfd971e2bdf0c867e01127a9a99461796769c, (0x104f9a13f02f5dab45c6dab4502ce96a113c6703280312892b33a88931c9d682, 0x08587d6e265717be5c28060c0177b4075d4aaf2f084ab39523f3d17c838e1ebb))))))), ((0x0be8ada4, 0x5460cdf1, 0x1cd8ee3f, 0x4878204d), (0x291e175a, 0x5d3f2a13, 0x11603ccd, 0x342112b9), (0xf04b461aa43de9fa818971151000a95a08a45978b5e8880e58ccd44403ed6f97, (0xc56662d73bf77aad4f72b6e9b1e31c44079db9ee55a7a166c81aea6a35a0a3ac, (0x0e25e00ce6125f9e1dc5dc00133cdb34bfcd2e78cc449b899c80df6409f2f5af, (0xf3c4b59af7a3b47f341e32835e190ad2c09c5e466d76049ef87d4771ad0c7408, (0xd4228e3cded8c998dd3940f736fcacdd0a93fccc8615893153ef2378204e6fe4, (0x2ed4d26335702662feb30665c3e0797c6e4599fb11880c69ae3fd62b70121d41, 0x552594d0f9902f5995ff07f36e255178666b558a736548b382ff2a25c848b451)))))), (0x921d63f72762bb09cf1e78201899f37ef2dcb9c84975792379f52513f127aab4, (0x822eca336934732728d8337b3b1058a50b42b25d9dc26741d5e2de6a8c9c286c, (0x438cfd31209ca72a02eb63dd557a390dcf7ff70dbcb35e493c77693d6968df5f, (0xe1a485113ffee4ae2a73a5e3402c82a488da25de65a0b29fe9ced46605710df9, (0x1e62eb6b7287b9578126a408b333a793d002d59306123bb3c27cd41141246cf6, (0x0e872a04c1bda9ab73ae030ef6fc973ed43d9058ece839747b6f1cb56228292a, 0x382cea31d7f593cac9ce52a791292d5a300a7e829b58f380abeaa90a7138a56c))))))), ((0x425544bf, 0x375a14a7, 0x13aaaaaa, 0x37da1e33), (0x3ff5e004, 0x201d951d, 0x3ff9c88b, 0x24ec45b7), (0x30839b10416ba5850019f890e3fe5a9a0961b02fc92dda63f781e454952184c1, (0xf8301f5ac9b43c758eaa97f8e3d427ef9c3a5ff17ec6e81587a3642343ec555f, (0x387975b5d2fe1b7ae8c909f6c65ee8599670ccb4032f15b00bd6017d26234d9d, (0x590aa7956cbaffcc04a27ba44ff846453bd1e793396246759355cdf4b2a88059, (0x84749e0cb3cc3bfde5db465760c7b40d8f06df4d63c1d87252223f4af28f5ad9, (0x2cdafb531362c49c53029847c4db36ea4cae7c5026f72ea744b1bfd22c3c17f5, 0xc4bb894fb4d4b2536afaf9f239fcdb6cc75c77f4f4bfacd7cd2b0038c0143c38)))))), (0x4f6f6a2eb29008718a1e11ca9347ebfd7d365024f20874ba23bbbe5c18525f24, (0x4f16b222029f94b657cbcbf4916f9656e44903bbfbeb5164d0af1a937bc1b432, (0x3d6974c25944f224be9b2b63bdd0c1c21bc039d34c2825e35d680170f0e3a8af, (0x11e55a9b2b807968456c77d74251752006a779cbd4e06f8526401555785c78da, (0x23f981575ea771b5fa525c7b5f8d2934548dac2237e5be65c6b37929977acc4d, (0xa9aeaf78bd5733b5f0b66dde76ddda0f2bc7cf2fc88731875e4d222fd8ebcaf0, 0xf3940f152d5c436b3e31f62efc2b706f9626a443a4eb2b77682cdb826466cc1a))))))), ((((0x2856510f, 0x2386c3b4), (0x068c324f, 0x19b19967)), 41, (0x4f2392e1b63d4c46ff9fa5bc781143aefb1e477d5e615788a79deeda728c83ad, (0xe9f6c5dc28656b31dd3a654c714b426b2d11acb231e35107d3e77afca8812e3b, (0x58380e02d8a16eb1720be0a7b6dbb23f15851791ba169de4d728197c0ee78d99, (0xdc1cb6cda80541e72b16ee7fd07af16b0c092b2723890c1ca6895e8a06c53ced, (0x1992d1bfb714fd03b0f15a40c178b836718c2a350a00310353469f74e4a923a8, 0xc98d797a7ba3dfb5f7efc1c6a3f9ba2474adc4edff34c8ca44df3eb805917086)))))), ((((0x1cf6544a, 0x154b0da3), (0x3246db07, 0x6ca54449)), 9, (0x69ecd60794424ea3abc11e615fae4c50c0236cf4b257bf5bb6949ad5143e550f, (0xd500287a75e9cc12a03e291d49916e636637edad3bcec6ea65c41f048be5aacb, (0x55b20e5571d4815713058070b0d1e8d79347c3338022fb6056d97ce425980ff8, (0x74ce6ee16dcfe0f875329a3b57d5a6bd76b1235aa210daa11667a87f2df60319, 0xc20208fb0754fad8972eba59fc703ac3ff5d6c694e6a315fd7aedecf64b78aaa))))), ((((0x75845d77, 0x0a003ded), (0x4a90aa00, 0x391c0747)), 9, (0xaceef67aa90f099438f5684afe3ad60ac3ff3ac0c704498442dd0e3972dfb716, (0x5540b8356e550979a3708fcb5f466694aea94d28aa4b96531d8ca17ff8cc9508, (0x5dceb03170aab9f34c018d59110ffab9e8c329ed1663de9e183e0b14bfa552eb, 0x0db81076874be42d24a7325d909867c54f6f3050fbcb1757e80aff2f80deac02)))), ((((0x51048f5c, 0x5fd0b32f), (0x2d524c60, 0x02cd0782)), 1, (0x16e113ed7ba72933a0ea571efd253fe02b5ae14f669104ed8a37dfdf9f822235, (0x19a3627c2dd18af7b72d23633de403a55e4b609d52dae46265d24fd3fb9aafe1, 0xb87b662bac703d968bc735c8c7ad5a4f18cf40841c89cc409d9c9a9a0d3f04d7))), ((((0x7476c153, 0x13c2e69b), (0x633e897a, 0x615bc8b9)), 1, (0x33874ee874b9c744c9c664b84bc837e901663b1c74f70a641841eccdd8659044, 0x0316ddbcca0edf74008b95806dc8fe6f77d828ff57bb506cf79d78e835331399)), (((0x0e397197, 0x1ead42ff), (0x4cf4ffd6, 0x19944b51)), 1, 0x09a84e3deed2469d0aee529b954fd1584cb72a13ce3bb6544a940cb08c74b469))))))),
+        (36, (0x5e064bdc, 0x0e12acc7), ((0x4977bd0b, 0x273ca8fb, 0x3b5378f3, 0x2825286a), (0x08a59c1b, 0x41b30c01, 0x0bc92667, 0x634de852), (0x15d4deb0f41268eb008db37835f329e328990a202ca566fb6d0a30c04e8964a5, (0x013b7dc24e50bf3f5c2cc7bf6c13199b74e244fbf48f8cdf2df83eb51d3674ba, (0x7fb975555bb77a8f63e933abf61ceea0f013ea4960e15dac41e3474930fc77ff, (0xdf5c9b73a8014bd3f28948e9ad97bcd6dc3f5bf4c7e88fd1a14b77d5bda2aaa8, (0x4cb3e7ac51926ed0b6e989b5fe401b076648794aca871165920345ab10caa381, (0xbe6023bda0226c6760838fe041b87c74d3cfbc8ee2245640cd32bbdcfa47df8c, 0x6bba3bccaa22ce8f3aa3962b3daa63eca6d06aff90352d10a66e8ac5b49e4a7d)))))), (0xbf2235068f770e601bffc009a6e98733f55b467dcae893e64e19da6dc24e74af, (0x5e881f9e164e8639bf73c45616dc162a153a65e569221f5144257a12bbd7fd1f, (0xa79752e00fd4d5f6f43e18c660477e381915728c3c1e010bbc87bf848f24932e, (0x9fecdf97221000451b8de87f9a6fa2033f21f25a2f7d097b46a4e749ce2ae40e, (0x88dbaa52d4064bdc0105865500f0a4e07423fe560dd38f361abd1ff4a1cc802e, (0x34003c9111b9a6396276fbc509a55858fd5478b8d05de3b2d2af7084a2ce887f, 0xf1e938a993851b20670342b89d0160ad8feff2a6c0ca8e4e03fd1aed6e2cbeb4))))))), ((0x3b8cc753, 0x72bd5881, 0x32a1d089, 0x1effbc88, 0x15ca6acf, 0x7780b40b, 0x064917ff, 0x4f0c45ce), (0x06010a95, 0x5753fba2, 0x1bae0902, 0x427f56f7, 0x5186511a, 0x4bf1cb28, 0x5898ea50, 0x0d69c285), (0x140c3e681ff97d9478b7af98f8db7d7a74583b68535d2aa5f01c0dfc196c1059, (0x7cbca3e77b4e85cbf9189b84d3273ecc6304e745c44f0c1a40f6d2c80feb7179, (0x6ae199eaf4e22ec3479361445daf4f5d5e85dd83fa0b18e18a8dc7c3a028774c, (0x6c1442810f8a5d9996e15e0ae90a4f63c4a24e6aa97ebd37a257cf78aa85c6e3, (0x3116b9a3cd613e16b70d86da4701c47f29e149bc68644e0f228b62c71782717c, (0xac3abb1b7ad22e1fc1cc274a3bd04833a161bf6ead0d30bb185024b0d68e81a9, 0xf2a78d3635564e4dd0372040317872a4eb1e8501405126d35331ef4bde1461ce)))))), (0x997ac5da8d0cbd9ad06bab2f228abad670dae03740b880fef8c39d2f05809c6f, (0x8abc723de0c34c5c09187deffb80ac064019075d36d5d0ce7daa06141755644e, (0xf8c324f3b77be556d8364cac63f33171a1ee452e0cee28d589dc6c7c53c500d5, (0x5b1430217989f2ddd707ca3c3ef9368b2d67f4ab58141716e0b2bb766548f297, (0x0d9cfcac892af6d14d143e1bc7bdfd971e2bdf0c867e01127a9a99461796769c, (0x104f9a13f02f5dab45c6dab4502ce96a113c6703280312892b33a88931c9d682, 0x08587d6e265717be5c28060c0177b4075d4aaf2f084ab39523f3d17c838e1ebb))))))), ((0x2613d6e5, 0x6ba8dd61, 0x313de3de, 0x4595067c), (0x4228ec2c, 0x57faa217, 0x6dcc5802, 0x15d1b5eb), (0xf05227cc606cd026ad13b6bfff47d963422f4d38fefa85c804c8d4b9ac39a336, (0x33d99f91953788427ab0cb92af7cb55ce50eebbafb3f8dd3cd833b2c8bcfd053, (0x18e2e4d1ba607d8e85a1456ed74864759ff13372200c5adc7f9ea4812be9fd0d, (0xa0549a2a4366cb368920377732c36fa08d4bd051972f3474b33559cb36748c49, (0xd4228e3cded8c998dd3940f736fcacdd0a93fccc8615893153ef2378204e6fe4, (0x2ed4d26335702662feb30665c3e0797c6e4599fb11880c69ae3fd62b70121d41, 0x552594d0f9902f5995ff07f36e255178666b558a736548b382ff2a25c848b451)))))), (0xe76c01dad7f167b13cc48b77daabf2f8268442961b5e8fdd5ae7cbe5ae7270cb, (0x3aed97d41c10ddb3992f1e22aefd15c5b789ab33833b1501c01a41df492a5f74, (0x5cb9f009ecad0611f42adbd5f3662717410d7e1990b06062c04c2483ab5a52a0, (0xed0e342fc1bda105e1e44490b97b5b54544bb7b9c1b82224cf1a3b914cb69dfc, (0x1e62eb6b7287b9578126a408b333a793d002d59306123bb3c27cd41141246cf6, (0x0e872a04c1bda9ab73ae030ef6fc973ed43d9058ece839747b6f1cb56228292a, 0x382cea31d7f593cac9ce52a791292d5a300a7e829b58f380abeaa90a7138a56c))))))), ((0x1d40573a, 0x537a3c96, 0x16bc324b, 0x7de923f7), (0x6f3e7896, 0x0961a8c9, 0x6d65ef99, 0x6d850e73), (0x9a5318bd377e69888fb4ef14a1caf532205cc4619ab316b54190effa4e62ac18, (0x5ce763251d9bb034e86ed285c02868d7823530f2b105671c27999fbaa2590ecb, (0xcd1263c00e69d42cfd6c7294f126361646bd761e50f9731d3897e42ca54b2038, (0xb2490b520b53ff44355c65a7665f7aa6f6530dec9e9e2e37440f04cd87d58b5e, (0x84749e0cb3cc3bfde5db465760c7b40d8f06df4d63c1d87252223f4af28f5ad9, (0x2cdafb531362c49c53029847c4db36ea4cae7c5026f72ea744b1bfd22c3c17f5, 0xc4bb894fb4d4b2536afaf9f239fcdb6cc75c77f4f4bfacd7cd2b0038c0143c38)))))), (0x528df9155a357089a1b14f1f3f60014104c25938f3d85e793c2c997a5816c5d4, (0x06ba196952a468948ed8a03be286079a420076d87c91bd1f63186f07b74d4226, (0xc5df05faa0989a6108eff21451fc3bb7f7e2a3850382e9284b6ddd947f40ad67, (0x19a3717ca4c8455e4cd620e75a77f87a1d6fd69536af43a0f99d4c08932e4aca, (0x23f981575ea771b5fa525c7b5f8d2934548dac2237e5be65c6b37929977acc4d, (0xa9aeaf78bd5733b5f0b66dde76ddda0f2bc7cf2fc88731875e4d222fd8ebcaf0, 0xf3940f152d5c436b3e31f62efc2b706f9626a443a4eb2b77682cdb826466cc1a))))))), ((((0x0efb0109, 0x28cde853), (0x1c57361d, 0x6e988280)), 36, (0x02b028455e1d0fe93432731069f33c9f98d342d90a073561fb7ffaa279d5f1c6, (0xba9c9359f66ed795eeb2bf8e49aa17fe2903bdbc0875904ced7f2b73dd991d3e, (0xf02caf2f57508855126476e050e93f09b9aab00ebfa60b456b99c18dda8982c2, (0xf1941f8a47b9b3cde3446e64121e09908081e81fcf824544b97a9d2a503af3b8, (0x1992d1bfb714fd03b0f15a40c178b836718c2a350a00310353469f74e4a923a8, 0xc98d797a7ba3dfb5f7efc1c6a3f9ba2474adc4edff34c8ca44df3eb805917086)))))), ((((0x66f533a2, 0x40b84bc8), (0x1b1bcb9f, 0x3e69a147)), 4, (0xd0102982198889a5dfff93effbc10ea838e42949a6f856c0eda553b45a402a9d, (0x0382bb3201d43e77f174944ac28e16054f6e28f42af52b16498d25a2987c674e, (0x0d0cc6f65dbb2541f6b279d480bf689706e2a5a3c4d0d08e56ff7a8d62e59a14, (0xc5d3dd99ccf59ae3059024b4208df549a644efcc9eda57d0b8323a3ce0c0c741, 0xc20208fb0754fad8972eba59fc703ac3ff5d6c694e6a315fd7aedecf64b78aaa))))), ((((0x4a842b11, 0x20d4a74d), (0x243ff88e, 0x7e5fec92)), 4, (0xc46a67e24548d2044cf4ec3d1788a945f28a48d877be5c2f1b19855a4e47cd0f, (0xc3512552b93b3adb039a07403ed6198f8327f82d5cbcef806059e8188396822b, (0xe5639a212555d23563f696506477a716fa80931e411edd93acc00035eee46c5f, 0x79f826a9556f431352446a5bae18bf818c7bfd81919b73d96d337b68f0599142)))), ((((0x0be0a717, 0x3d890b4c), (0x153cc2cb, 0x6b93c57f)), 4, (0x764cd8be892391211488b59c144668857bec0e53cd2fa42fbce3f4178030976c, (0x5abe277dfc72ed55bcfc36ef1d65c35f5874e739b78e6b9cfa8956c144ed9706, 0xb55e3238b092ba6a860a8a0e38a729b3f989fdf46aae1abffeaa1e07efa51dce))), ((((0x44d10a5e, 0x76313174), (0x7d9c7563, 0x1890cb30)), 0, (0x41791e431d7c34753087a6cd8bedb89651afb53a595fd5487b088a082b42a90e, 0x0316ddbcca0edf74008b95806dc8fe6f77d828ff57bb506cf79d78e835331399)), (((0x1869ffc0, 0x48510d3c), (0x2ba4cab0, 0x51a142b3)), 0, 0x83e61cc7c482f48c020a562eb7323fc7b5159bde9a0546b449b0385103fbfcae))))))),
+        (63, (0x513530b8, 0x4b25887d), ((0x03413098, 0x5b9b98f2, 0x0bfafac0, 0x50d63085), (0x5787ae42, 0x77dde8f1, 0x2e16e297, 0x65facd17), (0xf2703c6a855bec5f6d6389176cbbf030278b88df6ddabae87aa2532a412b1d1b, (0x05b93caabd71e1716e6411297929d8f2d750cc80f50843bca1dc72b17f669da1, (0xffd9f4a0a21860a5609cba00a2568516205a36dc89b9235382f17873b25933b1, (0xb67f4d92b78d38ae215526bd93cb817d8b4f68fd94d789d5386f42cd369dcd70, (0xd851b1ae11877e497a9463556d7c329e71bfbcb03b3b86bc4e141d80deb3b31f, (0xbe6023bda0226c6760838fe041b87c74d3cfbc8ee2245640cd32bbdcfa47df8c, 0x6bba3bccaa22ce8f3aa3962b3daa63eca6d06aff90352d10a66e8ac5b49e4a7d)))))), (0xe599a113d142698577e2dce5960b7be5b44d88173cca1396800c27641ef898ef, (0x942777b3ab30ba0ca217920b969377cb28adb8b50f94ccbe6b7b66772dbf4ac9, (0x16a8b851e9fb475103af73000d12b34397e36649b5df0a7217ab4b0d4ca07dce, (0x7dd9b9d7f479ea4ee45f591f5a0be6d818bcb781fe62a54774afb057a86be5d5, (0x63b3018e390351315a2be6b34aaea62b96586278fd17efd762cc9a37ca090c9a, (0x34003c9111b9a6396276fbc509a55858fd5478b8d05de3b2d2af7084a2ce887f, 0xf1e938a993851b20670342b89d0160ad8feff2a6c0ca8e4e03fd1aed6e2cbeb4))))))), ((0x4c5f6b54, 0x12465ac2, 0x575ef8d4, 0x5335355c, 0x7db485e4, 0x36c1b0d7, 0x1966eee8, 0x610d277b), (0x7272df4a, 0x3e854c1f, 0x6aa62015, 0x4f43895c, 0x4490c5ba, 0x77a5d63e, 0x18ae26e2, 0x6c0f1360), (0xfb699f9e33fae466902c4d44f2ae71a90e54e99c3d182e4b389d75d8a6feafb0, (0xaa23317ecaf32771244729b189c6ddd1ee2b600db7eb709bb89ef19f1d95f917, (0x249a307f9efbadc4597d9fbe8212102d0044a8a8f5d32d50cdf761962e6f5497, (0x8091d82ce7580d86b24c9a3764a04b74482bca86677f393ab8b472142ee3d147, (0x8b6d0d6b5b9087efdf2d285b6561f55f49ca43883573c0accbd3b18d2ee5d069, (0xac3abb1b7ad22e1fc1cc274a3bd04833a161bf6ead0d30bb185024b0d68e81a9, 0xf2a78d3635564e4dd0372040317872a4eb1e8501405126d35331ef4bde1461ce)))))), (0x3f3292022589faf9545b3457151204ae4470e695c652bc55cff9d204eb86e748, (0xb367c722a804e5bd77c28be7f9389e066c4c37b0521b469480742c64920a4871, (0x8205f990d8572fbbe71ed9aa241974c57c5ee029f165452dc05990f449835539, (0x5ffbd6886a8e71d5e735b1122d634f4d04509907615d941f9cb3e044b91263b6, (0x5f6c2f4297ab870597f7baa957f02316a6bde0d6989b67b7d12c38c75de8c06b, (0x104f9a13f02f5dab45c6dab4502ce96a113c6703280312892b33a88931c9d682, 0x08587d6e265717be5c28060c0177b4075d4aaf2f084ab39523f3d17c838e1ebb))))))), ((0x3c85aa69, 0x25c5473d, 0x0f04e411, 0x693f9cd3), (0x79cb69cc, 0x39d16b5c, 0x79d76ceb, 0x4006018f), (0x0b4c78f5e443013aec1776295900bc1e10efaf4c67b6f98ffced44426a8497b7, (0x9235ba69f49d79e60b2c68656f07ba7cfab6fcbbf1abedb6aa33fc81394a7b3f, (0xcc2b210abb7be3a68b4afa3f28175ccecd067c0972c230f670d4aaa50ce048d8, (0xbf4721db8ea8dadf542997aa29589b4a7935ddd96b2037f9b2ad23e106bc8df0, (0x2de2a6ef65640e540515d8287bc2f36980e9356868cabba982e44ffc461a6b28, (0x2ed4d26335702662feb30665c3e0797c6e4599fb11880c69ae3fd62b70121d41, 0x552594d0f9902f5995ff07f36e255178666b558a736548b382ff2a25c848b451)))))), (0x1d0f4c52214d6fd75a7e5a0b0648d72ddfec8a25a4ea78b1dee75facbed048e9, (0x0e666dd103710a7fcab526d308127e9b412fc94f9344f5caee47a7ff9abd05b3, (0xda2ced5c1b28d5458bc502f267e8f5b21e8ead4d163bf6e938c575703e4dcb3a, (0x68da8998751d92d0cdf50363b53b6469e2dccf9a43e4ef6cfa08764a03397e6a, (0x1b32c3857c1488565faf738a161c8aac0998f28f10671011b792a9ab7ef3d15e, (0x0e872a04c1bda9ab73ae030ef6fc973ed43d9058ece839747b6f1cb56228292a, 0x382cea31d7f593cac9ce52a791292d5a300a7e829b58f380abeaa90a7138a56c))))))), ((0x7920e954, 0x33ac20f8, 0x7a9f3d23, 0x56c5c0d7), (0x622d0c1a, 0x0e4e4b0e, 0x308109aa, 0x6bb85551), (0x35ebb07ed0490db27be9c573fee8b5d60eabe707aae07e3e1a4b1da5a63f1dbc, (0x6be6de42df0dc6f5acaf4a7a53bd9195695bf55a7b7faaab6b1516bc270e417f, (0x0ae50a69c3ec12580c7f442eb8383e33c4468930ea8f0038ca6b77ed86c8f721, (0xe08375821ba61db30d4f4c15ba40c10e0d9320c7fc3181af7bc7080598bc6593, (0x7b537341e86c0f3ad4c94cad53cd42a2cb855dfe4345d1bf80fdd7ac92ba18e3, (0x2cdafb531362c49c53029847c4db36ea4cae7c5026f72ea744b1bfd22c3c17f5, 0xc4bb894fb4d4b2536afaf9f239fcdb6cc75c77f4f4bfacd7cd2b0038c0143c38)))))), (0x37eabc9f3e8c1407d9dd22a12fc2ed96da4925a6d1c75631a5ba577bbb2179d7, (0x333d95067eadfef29c71e16e8ab67226983a09c8a5f99d7ef03e3d06a1a09987, (0x32f5de533c6119db5dbc4af41eccee73dea079e8a83849e3e3eff92f60224124, (0x0a3632b67891c7f0d5d25aed39639cbfe4185493e87684221807f6344f8f2729, (0x29de5e7f4333d03ad103f30f4894646f2556cc4e0af9f2a492fa1199b417ae75, (0xa9aeaf78bd5733b5f0b66dde76ddda0f2bc7cf2fc88731875e4d222fd8ebcaf0, 0xf3940f152d5c436b3e31f62efc2b706f9626a443a4eb2b77682cdb826466cc1a))))))), ((((0x07880ff9, 0x78d21367), (0x5918ecca, 0x3b195b14)), 63, (0x91fd049fa218cd338f0f902959043ec97ede3cdd8b7bb920919eaa95fc88422f, (0x486475977ad5015cef639227cc9a6096dc9b760e80a159f7a15e5442edd90fd6, (0xf625b16d75e57343356a360b6a84a1e8382e5a218f92dd93ca5b4f37a3aaf771, (0xa2c6ea089193fbcc68dfb26d8c9dad34017f9d942070e573e115764454157d38, (0x45300f45b6cd00e3f6851777e45923967c3906d6bf1323d327cd02feaeba4c1d, 0xc98d797a7ba3dfb5f7efc1c6a3f9ba2474adc4edff34c8ca44df3eb805917086)))))), ((((0x490a548d, 0x22e6312e), (0x10d53f45, 0x16c126a5)), 31, (0x6fbcf526b25a69c6b4aa9d6c057183b2b6312f26f39f5ddb93c9c0bf68632f39, (0x59a3c7b5e47e30145983d80e522a8e5bf655d4c466c9800c848838a22a1cd24e, (0x355a03d6d84006fd3d631f44b8415b46dcd57e1def82e687c740500993e4106f, (0x98779608ff9af66fc1265423c27412b092470eca73333220340cc4134e3b18e7, 0xb80b7a745727c61a9009c12f6a413196984955aeecd6221e33b66b20a75811e9))))), ((((0x169ff248, 0x7014f741), (0x2864c71f, 0x062ec27e)), 15, (0x53039482b7cfdfa67f867c6b55eeab186d189d8b5d3214ab326f4c6477e721b9, (0xf96f081dc41579e663117126f2eef2be36da587f9333fe38968abd796357036a, (0xdf12e49a0dd60be74b169926bad200565483a92b7e1591faeaa0d13859ac99d5, 0x0db81076874be42d24a7325d909867c54f6f3050fbcb1757e80aff2f80deac02)))), ((((0x0093f3d0, 0x3a325daf), (0x2fc541d5, 0x1c098594)), 7, (0x32864bbf73bcf2fd809b11950d8aa5efaef3860281448c3eb43b840b3f39661c, (0x2f78240689c7c3108666e8dfb4cfbcacdef4a1f1c5bb0723d6f6e1e70d9b8611, 0xb55e3238b092ba6a860a8a0e38a729b3f989fdf46aae1abffeaa1e07efa51dce))), ((((0x685885c2, 0x28b543b4), (0x3047f8cc, 0x0957df67)), 3, (0xd140612e1255d1906983873473caa9ee67ae79ea5ba4f8e0e7ec46540fa45524, 0x4e8710ee20cc22dd12f31e5bad8de9ea5cd44a68557de9f7678820c90d3461f7)), (((0x0e397197, 0x1ead42ff), (0x4cf4ffd6, 0x19944b51)), 1, 0x09a84e3deed2469d0aee529b954fd1584cb72a13ce3bb6544a940cb08c74b469))))))),
+        (27, (0x21f9b423, 0x0e12acc7), ((0x131dc03c, 0x17f0ce21, 0x02e18b5c, 0x57d158b1), (0x650d460d, 0x689f7b73, 0x6f38b55b, 0x143b5ef5), (0x95c68acc0ef54876eed032f0c05d8fe4dedbc790b4b145d5388693f50bce0590, (0xffe9cb54ef9e1a02fb5bfcad9897bd2e759105195b392f29dccedb3acaa59bce, (0xa32a24e42a9bd6df79b0a82ef31c72f6dea5d42a1563d4c297c1ee348d21d7e1, (0x718eb3e50332f3ff62d030cce0f467e1186d80d4b1135daa5fed760f0450ebff, (0xe886867bde2d04a87ad94972f6e507ddfb9a5b675f93a45051e32125176a9150, (0x41d5806dc70605018561396c4b23446ac1663075f226bae5a21570d6f9fad5b0, 0x6bba3bccaa22ce8f3aa3962b3daa63eca6d06aff90352d10a66e8ac5b49e4a7d)))))), (0xd951704d62c1d18f431b4f5d0f115bcf2eca4e4295e68878e595a20c46c671ec, (0xd115c36dd68e3f7a97801b8eb8dd9576a40434b94f3c1ac6fc7a6a8c5c4b205e, (0x4f1360ee8aabf7923cfb869d4f67eb69ba08e99d81e760b7d399eedf79b3b2aa, (0x2304fab27cdabe9f8dea4b2b1aced8e50369917352ea37bfa1cd88d89c8da9ea, (0x89eb3e69c381bb9482822c167b1f9895471fc469a5aace100a12b6c0a475085f, (0xa6c772e0c610939220cb5d7e33a78aebc402597c1f5b28c276909f146e41a9ca, 0xf1e938a993851b20670342b89d0160ad8feff2a6c0ca8e4e03fd1aed6e2cbeb4))))))), ((0x106bdde7, 0x02d49a1d, 0x20044774, 0x4e6d7581, 0x624e3923, 0x089099ff, 0x426dccd1, 0x528f8bc5), (0x361022e4, 0x3a7af5a1, 0x162b05a1, 0x7c268ccb, 0x0204823b, 0x7d88148d, 0x27f8febf, 0x17cae95a), (0xe21567a08d3207dfaf72f9d20892803514e1bb89b57a461a59041a530214ad48, (0xbf5a48d5f69f6d094eaef13e83261a0fe4e946e0e82fa1eb3f2861e4cca3db66, (0x79f4dba0b2972dd0a54f0722881b106aa6c564da58a74a95d837346bb2f6cdec, (0xc07d294454c2c7814511eb26559bc8fe473b2383261ef93eb8befb63dec12f77, (0x3d5521871d2cee613d22b3caf8934719aab6ffc2766382fdd1f885e8ea6a846d, (0x05e1e4f0d8e54a9c834663815efe639b90297d8054da166756ad0c17e221904d, 0xf2a78d3635564e4dd0372040317872a4eb1e8501405126d35331ef4bde1461ce)))))), (0xb9d301f51fa5d2354dda196fad03d1e5fec09fbdb3117fbf1b9d630be741b47c, (0x8b284df6dc42731bf9dc2607dc4faf3fcce8cd1582784eba662cbc9e877302ed, (0x3885ff21a61517674edd606cd99f8b6db631976791a91fe844cc6f2b9d348890, (0x15fb7ce2936877a242ace581c713ab8d67cbd6fff0ee68bb81bb008b5cc0cb2d, (0x695ec7d5ded8eed558037de59495799f912f3ce8eecf64f2ed8a16337845a288, (0x64d8bd19eda5f3e17655954e4701fe76520baf2cc3450063e3adcf635e6ce292, 0x08587d6e265717be5c28060c0177b4075d4aaf2f084ab39523f3d17c838e1ebb))))))), ((0x1835a9b1, 0x5534a8e6, 0x1233a81c, 0x3cfeff35), (0x55fbbff3, 0x125eee1a, 0x4ec21c40, 0x3c632e26), (0x18b7521af1463cac2a8554fc2d978f434aee373a5f255fc2edc6f875713cba28, (0x0e3627284a42d510b2ab79e80b5bddf432a2434d671a0e4b94580217d128ef41, (0x1b89b11919338bc79fb6641b4537e75616cefa934ff05d6437636f5a048b4449, (0xc19e4c59474ea40d5db89a6b79ff94b0074351e9e89391dc72eca6b5b3bc7149, (0x9a6d56c49c438150d71a17b4e4cb8ea9569f482fad6b96d08f111112b9c7ad06, (0xb2c6e71d5adc91d3fe5727c15b2863d8d820a45ccebfdc4e68e8c1b76b8ffe03, 0x552594d0f9902f5995ff07f36e255178666b558a736548b382ff2a25c848b451)))))), (0xe1f5e9a7d87c73df97289410de6e074beedcbcf97686185d82216c87bb24c030, (0xbd87399b41cd08e31588ec29d90a5e563e9eb9888e00675a2cbecbe013ffcee3, (0x305645a8177e3e2a89ee4b520de7555112e82720ba95c0fee9539ee9ab885e88, (0xd83d1670a6ca6ac82f6febbe850987a98a4ec5221d69eaab45d8cbe046b8132b, (0xcb42f2950e13067aae8f638df5cb166a047461ff6cfe1d65f685fc09aebe59d1, (0xf50473f8f091948fef0faf7f3ff6c024ff2de1aee7e8aac23c7ba445a97cebca, 0x382cea31d7f593cac9ce52a791292d5a300a7e829b58f380abeaa90a7138a56c))))))), ((0x6fc672a8, 0x1f8110c3, 0x63a44059, 0x02748064), (0x6182c2aa, 0x78b7f8bf, 0x32869030, 0x416dfef8), (0x2565426e672d377e290fefb8be17c1edebe3ea240d4747d4c587f3adbbfbf9f6, (0x8a4decdc94ac08c0a8620ccf33c3a328b3eb4832014838617c9d360737d75e1c, (0x3fce8824322e5f232bc9242b1c43739daef77938b7e5c6e03e357e3eeab57c4b, (0x8cb3ca21b221533a0c969aa87c8d6ce5aeb0090c575c3da0fd0e8ed853c40a37, (0xaf602759beb66c281c075658156c25b2d230d34106cd489acb2a99246832afd1, (0x8ebed4d5dd4b14091ff56a540dd7ef1657b9577039ecbe831d854375a05795d1, 0xc4bb894fb4d4b2536afaf9f239fcdb6cc75c77f4f4bfacd7cd2b0038c0143c38)))))), (0x0ccfdfe2a63786b2238978a0d169124c3cf7d5442bc7a6a8c565cc79539cf937, (0xec3c393625bf98a388c9ed321d642509620119ad37884ace6a67e03a4ed03e68, (0xa25179cdc05a34b9a2567ee98323d2e75323cddcbd4c4a0ef5f551eb0482c10a, (0x4b9da909576eaca0041733431053060bf390c397402718184a7fefb487cb6db4, (0x1086b927adc160d59cac68d4f4edec4cef70fe2b8f81d3ce1e1eeb3ca093b3ab, (0xf56c34cc250b4d8e69135167fcbaf693d086ac73ed6e264548c495d03dca061e, 0xf3940f152d5c436b3e31f62efc2b706f9626a443a4eb2b77682cdb826466cc1a))))))), ((((0x46289722, 0x7838bdf5), (0x295b1f5a, 0x7fd59341)), 27, (0xd1b5265d4884e8b876736cc5e7d3ae468b5b91ce6b86602f04efd663b9f50834, (0x27087a35298b76b3f0a6d6c985e1ee3f3c77513a7f32acafeeaf652ee933db82, (0x44a4e89516b997a46b87b51ac30c89bb688e0fdb7031768c2de0200bd4d9e841, (0x5a9bd30b07980fc65d428df7e1742a4db0361d8f7e1301207cf4cbfe34ebb8d2, (0xc5fce9eba31592c66d4331513440d01ee6dc11e6588f7cd10b83d17203ca5c8b, 0x6914ce0a2d6a41535f07d1def895b298190d4bdc80061535fb02b1ec76d6925d)))))), ((((0x735501d5, 0x153c1b27), (0x13a16f21, 0x4dd2a0ef)), 27, (0x532bf6238b1e5439af3be2f8e18e6e49c8c57b8f12ea7d5b5daab9f6f0ff2c3a, (0x143a71aafb8d39b47ec7fb6e1dd6cc1f760c068a8bf51ef3a5946c2a8213ed6a, (0xfaf58af60cdf717e933e7789fc918ab7522f657dffb62c81825a478f3536cecc, (0x98779608ff9af66fc1265423c27412b092470eca73333220340cc4134e3b18e7, 0xb80b7a745727c61a9009c12f6a413196984955aeecd6221e33b66b20a75811e9))))), ((((0x5e401e47, 0x40f7e386), (0x47d26f0c, 0x5548a810)), 11, (0x9e798827b4570ff436f1974c6a7f84526c9a6487b3c8625d8dad08581cf0a5a6, (0x86fb80eb84667c80192fa46d3747ddb36b241ba48d6697a520c410f5bb97a8e0, (0x5dceb03170aab9f34c018d59110ffab9e8c329ed1663de9e183e0b14bfa552eb, 0x0db81076874be42d24a7325d909867c54f6f3050fbcb1757e80aff2f80deac02)))), ((((0x27a0ad14, 0x530c3ade), (0x3b582f9f, 0x68138ec9)), 3, (0x42c745ee68426614bf2a94761e68691f4c1d8e15b5f9d018e9fcddead54df4dd, (0xfea0685128247c309fb06e1fc02d3d2cde1f8e0372c9bce0cb30e1aae4ee78b5, 0xb87b662bac703d968bc735c8c7ad5a4f18cf40841c89cc409d9c9a9a0d3f04d7))), ((((0x685885c2, 0x28b543b4), (0x3047f8cc, 0x0957df67)), 3, (0xd140612e1255d1906983873473caa9ee67ae79ea5ba4f8e0e7ec46540fa45524, 0x4e8710ee20cc22dd12f31e5bad8de9ea5cd44a68557de9f7678820c90d3461f7)), (((0x0e397197, 0x1ead42ff), (0x4cf4ffd6, 0x19944b51)), 1, 0x09a84e3deed2469d0aee529b954fd1584cb72a13ce3bb6544a940cb08c74b469))))))),
+        (32, (0x4b25887d, 0x513530b8), ((0x2cfa1da8, 0x0e9a3282, 0x116b9ba3, 0x3872907d), (0x2a0a9a96, 0x6ba0f921, 0x15f7da62, 0x3321658b), (0x5f7f4801422bda2b75648eb234f2ff5e7c288d63bfa179167032145ce972acf6, (0x56556f4e10f6fa32c0d3a2e24c262e901ca3f51347d3bcdac2ce012e18e17034, (0x45c32e01f9c2933e904ac7d0e6fb5e9bf2197882a357becd06521d4317dba159, (0xdf5c9b73a8014bd3f28948e9ad97bcd6dc3f5bf4c7e88fd1a14b77d5bda2aaa8, (0x4cb3e7ac51926ed0b6e989b5fe401b076648794aca871165920345ab10caa381, (0xbe6023bda0226c6760838fe041b87c74d3cfbc8ee2245640cd32bbdcfa47df8c, 0x6bba3bccaa22ce8f3aa3962b3daa63eca6d06aff90352d10a66e8ac5b49e4a7d)))))), (0x84874f46bab14eaf7bcf787293b4dead26f918ff213b95945b3dad8147d211d1, (0x51e4792563f18a01c9c05201052280b5f3968391e5e14a6d79438938a188496a, (0x3887b33442c7efb86c1a248c7eeeb6ac3780b8dfed2b2090bdc5ae9a3fd4128e, (0x9fecdf97221000451b8de87f9a6fa2033f21f25a2f7d097b46a4e749ce2ae40e, (0x88dbaa52d4064bdc0105865500f0a4e07423fe560dd38f361abd1ff4a1cc802e, (0x34003c9111b9a6396276fbc509a55858fd5478b8d05de3b2d2af7084a2ce887f, 0xf1e938a993851b20670342b89d0160ad8feff2a6c0ca8e4e03fd1aed6e2cbeb4))))))), ((0x4410ad9f, 0x6b295200, 0x7c566a64, 0x572a0241, 0x6aeef3e9, 0x2cd52662, 0x1c79a472, 0x65b7c92a), (0x2bb75c71, 0x577d5cb4, 0x70725821, 0x5f4ae3a8, 0x2c773594, 0x08177bb3, 0x37bef687, 0x238b7d90), (0x2348181b979877b2e83502520a11c67a0de1f4e8a466bdd43ca7209c7d91e608, (0x090f0c187781f3ca2d989f2cc1f440c92989595b8e9d95a091bd17cd8903db19, (0x48bd9bca7de84c628befa095b9572e8f1fcd94af90db97dc51194001d2878258, (0x6c1442810f8a5d9996e15e0ae90a4f63c4a24e6aa97ebd37a257cf78aa85c6e3, (0x3116b9a3cd613e16b70d86da4701c47f29e149bc68644e0f228b62c71782717c, (0xac3abb1b7ad22e1fc1cc274a3bd04833a161bf6ead0d30bb185024b0d68e81a9, 0xf2a78d3635564e4dd0372040317872a4eb1e8501405126d35331ef4bde1461ce)))))), (0x8d218ecd46f97d1dccfd7be6a0ff3b13fae13e3566fd9def801acac9186f708a, (0x7c32297fd01691cd314712381748662fd92cde7513fcb33dd08a6394c7234ed3, (0x1957aab742ba431d2c10166bad6c539508138cf49e69080dd8a3719ad315f329, (0x5b1430217989f2ddd707ca3c3ef9368b2d67f4ab58141716e0b2bb766548f297, (0x0d9cfcac892af6d14d143e1bc7bdfd971e2bdf0c867e01127a9a99461796769c, (0x104f9a13f02f5dab45c6dab4502ce96a113c6703280312892b33a88931c9d682, 0x08587d6e265717be5c28060c0177b4075d4aaf2f084ab39523f3d17c838e1ebb))))))), ((0x41bb3019, 0x5a27f272, 0x7294b4cb, 0x186cc259), (0x5970d9fd, 0x0af96c06, 0x3c81fe0e, 0x31889208), (0xc6e36fb5bd6a45ca2131a508ada2b703d4fc52123749ca706009ce52b4673d87, (0xf2c10f3d52b4b501a4329d921c35eb9c9297271aa45d07afa2aabb2b18912b42, (0x6cae12caa05d644484a438ba3dd4af53d418ecbc98dd2e0d86481f670e32dcb8, (0xa0549a2a4366cb368920377732c36fa08d4bd051972f3474b33559cb36748c49, (0xd4228e3cded8c998dd3940f736fcacdd0a93fccc8615893153ef2378204e6fe4, (0x2ed4d26335702662feb30665c3e0797c6e4599fb11880c69ae3fd62b70121d41, 0x552594d0f9902f5995ff07f36e255178666b558a736548b382ff2a25c848b451)))))), (0xb2e7fb608590467add60b3eb5befbe046c0201b1888ebb20822b59bf6cd8b1eb, (0xa693846192d9520d67ef60e1c941b6bb3cc388c544cf0f2acb8f65e8fa1f4e09, (0x079b23545394075d86a3527faa48fd3387f614c0eb4e0061698b9d9f41c744f4, (0xed0e342fc1bda105e1e44490b97b5b54544bb7b9c1b82224cf1a3b914cb69dfc, (0x1e62eb6b7287b9578126a408b333a793d002d59306123bb3c27cd41141246cf6, (0x0e872a04c1bda9ab73ae030ef6fc973ed43d9058ece839747b6f1cb56228292a, 0x382cea31d7f593cac9ce52a791292d5a300a7e829b58f380abeaa90a7138a56c))))))), ((0x7a97e61c, 0x274c51a5, 0x449fd582, 0x04547fc0), (0x7425745e, 0x3fc0be3d, 0x407ad4a8, 0x5ff0d439), (0xe480af3e742f2a50a3610b7ff7f73b6d35885d99157b524d76b572c4bdb6d24c, (0x8ba218eeec1cbcca60ad77119a85f747daf11b7b1af88d8a2f12b1fa534993fa, (0x4fc7ff2cb07168f1c6b940db7a44a9b1608996bfeffcf597ff284af706559a4e, (0xb2490b520b53ff44355c65a7665f7aa6f6530dec9e9e2e37440f04cd87d58b5e, (0x84749e0cb3cc3bfde5db465760c7b40d8f06df4d63c1d87252223f4af28f5ad9, (0x2cdafb531362c49c53029847c4db36ea4cae7c5026f72ea744b1bfd22c3c17f5, 0xc4bb894fb4d4b2536afaf9f239fcdb6cc75c77f4f4bfacd7cd2b0038c0143c38)))))), (0x1b6a10c2ea4a5091330bf01ef59fae28c1d573d1f40598e77603f7f8366f78f4, (0xdea57b8b9a3fe70b6f7dff9d103a38f6fa7c9e29108e73d2c3264208d0405370, (0x9af3f4ac2b6c9da3dd6319bc5439c238246888031282c0038a1a7457bd925a57, (0x19a3717ca4c8455e4cd620e75a77f87a1d6fd69536af43a0f99d4c08932e4aca, (0x23f981575ea771b5fa525c7b5f8d2934548dac2237e5be65c6b37929977acc4d, (0xa9aeaf78bd5733b5f0b66dde76ddda0f2bc7cf2fc88731875e4d222fd8ebcaf0, 0xf3940f152d5c436b3e31f62efc2b706f9626a443a4eb2b77682cdb826466cc1a))))))), ((((0x432d5480, 0x28c71124), (0x6875b1aa, 0x6f9134d7)), 32, (0xac5f96e3dda01ce95196f392caac119db7f4c414eea1d456330b60e236d12296, (0xc686ec72290cff205011a91c023b416234772c4b3ab80c8a29b803923f2b7cc1, (0xfd18eee87194bab7de192800ab5dce1d4541e23397c2089b172774579dbe88c6, (0xf1941f8a47b9b3cde3446e64121e09908081e81fcf824544b97a9d2a503af3b8, (0x1992d1bfb714fd03b0f15a40c178b836718c2a350a00310353469f74e4a923a8, 0xc98d797a7ba3dfb5f7efc1c6a3f9ba2474adc4edff34c8ca44df3eb805917086)))))), ((((0x3363b48a, 0x12eb0561), (0x69b6bd23, 0x78e196c7)), 0, (0x76587f7ca68133a16160ea8c00aa791b7fe5b2ce59b830181a5b2f32a39b043e, (0xa2e351c0ad7f7091cef045aca255a89fb309b1ba6a17a0bfb79f06d9bc8d7ea4, (0x87e898de216a6de2c9a7a99e15070c07a67f316d21d7540a9f6abc3e05a626ac, (0xc5d3dd99ccf59ae3059024b4208df549a644efcc9eda57d0b8323a3ce0c0c741, 0xc20208fb0754fad8972eba59fc703ac3ff5d6c694e6a315fd7aedecf64b78aaa))))), ((((0x671f5271, 0x535cf7c1), (0x04299982, 0x50930e50)), 0, (0x3762a9ebd92c5a4dafdb42e10437397bfc651b7be7f8e1266eba6203801f76ef, (0xdabd16c9a77790c231718887bcc68ecbb33901eca2f0ba124f6f9d82a43c5a5d, (0xb4c9eccc0954675e6c94f023f33beb95aa83fdbfa12190af5ceb38bc83d9d878, 0x79f826a9556f431352446a5bae18bf818c7bfd81919b73d96d337b68f0599142)))), ((((0x7fda70a3, 0x69fdf90d), (0x17a28844, 0x11bb418b)), 0, (0x61f83a31a6a2c2aa9b3ab3228fb3049bf4af26769817d9f91351cbcbaec6bead, (0x19a3627c2dd18af7b72d23633de403a55e4b609d52dae46265d24fd3fb9aafe1, 0xb87b662bac703d968bc735c8c7ad5a4f18cf40841c89cc409d9c9a9a0d3f04d7))), ((((0x44d10a5e, 0x76313174), (0x7d9c7563, 0x1890cb30)), 0, (0x41791e431d7c34753087a6cd8bedb89651afb53a595fd5487b088a082b42a90e, 0x0316ddbcca0edf74008b95806dc8fe6f77d828ff57bb506cf79d78e835331399)), (((0x1869ffc0, 0x48510d3c), (0x2ba4cab0, 0x51a142b3)), 0, 0x83e61cc7c482f48c020a562eb7323fc7b5159bde9a0546b449b0385103fbfcae))))))),
+        (16, (0x2be279f0, 0x5c9b1c5a), ((0x55a0d9e3, 0x131d381a, 0x56e41956, 0x3d92cd1a), (0x4cd50e8e, 0x76eb0bc8, 0x20f1fa11, 0x7b4bb2bc), (0xeb6dad427851aab00d461465e349b03133fcd14a34131a1f77a72db3d466f219, (0x0ec60359519ac249910071ef65114aec76ac7173708cccefd63cb02104ad7415, (0xaeddc790c0768dfafd0123ca58169510d578cbcdf7f9fabbdc7ad30d8b16d872, (0x46f7bdb882832e12cd84c05a1d7773bb092d1750330c6f61a5ab4d1131cd302a, (0xe886867bde2d04a87ad94972f6e507ddfb9a5b675f93a45051e32125176a9150, (0x41d5806dc70605018561396c4b23446ac1663075f226bae5a21570d6f9fad5b0, 0x6bba3bccaa22ce8f3aa3962b3daa63eca6d06aff90352d10a66e8ac5b49e4a7d)))))), (0x8866ca6c9a49838c94743dd2aa386732ab8153be095637badb80a5b182fe3495, (0x8c84444392f76379c4d765b5d6d5165fbb96e36a465145ac05b4054a782162a6, (0x17088c3775027acbf3b5bd9ebf692fdf3754e216f2546a401c8c108b58e8df69, (0xc1d4cffede888930289647043c167b5e0609b80339de2356bc4c64bf89080e70, (0x89eb3e69c381bb9482822c167b1f9895471fc469a5aace100a12b6c0a475085f, (0xa6c772e0c610939220cb5d7e33a78aebc402597c1f5b28c276909f146e41a9ca, 0xf1e938a993851b20670342b89d0160ad8feff2a6c0ca8e4e03fd1aed6e2cbeb4))))))), ((0x6d32b945, 0x70453f4a, 0x0ee06e04, 0x538af94d, 0x05a380b2, 0x38e0ca14, 0x32d9b807, 0x5cff0502), (0x4f91c4dd, 0x4604dbe2, 0x1f80eb0c, 0x0879425d, 0x21f6c924, 0x59e147a3, 0x72478920, 0x0229a1b6), (0x88d341d54a8217238864081cfe5f03756f7744cdef8318f1d9d432cfbeb26d34, (0x48e464e6cd2a184014bb803b48aa8c48d5a59c8ee111e2de1be3df6865115f27, (0x81a3fb4b9b55cf60bcff66cbec50c6b6d6c036cce25e49469fea1434a14fe636, (0xa484cd401b8e7f20ceaa5a4eb7354b5f9acdd78a680dc89fddf6845c1ecec9e6, (0x3d5521871d2cee613d22b3caf8934719aab6ffc2766382fdd1f885e8ea6a846d, (0x05e1e4f0d8e54a9c834663815efe639b90297d8054da166756ad0c17e221904d, 0xf2a78d3635564e4dd0372040317872a4eb1e8501405126d35331ef4bde1461ce)))))), (0x30eea5ca094c2b8af93d152eddcde6d9f6ab8f04c2f4a4beb18e427345d5765c, (0xda1ca623045c6fd1ed3bffae2edf182f44ad25bf9bfc3d3855585e38f3da1072, (0x52f25403108b9fda1952d43f6d3999a854660a2f63421233e728f8703a10d576, (0x43dd74b0961c17942d32c0b4d6de90ca493711f2198c2342e66701d6a68d0d7b, (0x695ec7d5ded8eed558037de59495799f912f3ce8eecf64f2ed8a16337845a288, (0x64d8bd19eda5f3e17655954e4701fe76520baf2cc3450063e3adcf635e6ce292, 0x08587d6e265717be5c28060c0177b4075d4aaf2f084ab39523f3d17c838e1ebb))))))), ((0x51f542e6, 0x2586be91, 0x79183a3b, 0x53917baa), (0x3fe6f8fd, 0x2355a5e1, 0x06c452c5, 0x636eace3), (0x0fcfb35348eacb7903a1878d06bd1ca535130fd80b0b834a40b84968dcdb47e4, (0xb6a4e0243959c1c1fadf0365979096183477252274f2c9fe5fb9631ee7ec5a34, (0x65a5472693cd79d2d200c2ec2cd370f15c915f0d7722b97d5d6871daaeea1040, (0x46f155dd1d0d8e72859d24738573f70ed989b994131ba932c79f6b7292a0e5b5, (0x9a6d56c49c438150d71a17b4e4cb8ea9569f482fad6b96d08f111112b9c7ad06, (0xb2c6e71d5adc91d3fe5727c15b2863d8d820a45ccebfdc4e68e8c1b76b8ffe03, 0x552594d0f9902f5995ff07f36e255178666b558a736548b382ff2a25c848b451)))))), (0x119a4ad6625571fb090f69bdbfac69747a009e90ec569b367bd865a9ed0d6087, (0xadc7114caee3023a93e60b6ff9a0763ed4cc28a079247b01adc2fe697d09e193, (0xb162d5e2d7405815d1816107441073a3cc34cb2d46ae1a4a6b48ce7269c0e035, (0x25dd09eee5068010149a6baaabaab3e0c5723500ef8a61b2967fe03a6d62b45d, (0xcb42f2950e13067aae8f638df5cb166a047461ff6cfe1d65f685fc09aebe59d1, (0xf50473f8f091948fef0faf7f3ff6c024ff2de1aee7e8aac23c7ba445a97cebca, 0x382cea31d7f593cac9ce52a791292d5a300a7e829b58f380abeaa90a7138a56c))))))), ((0x433633ab, 0x12532367, 0x26bd3947, 0x4158cd61), (0x381c6144, 0x77b7437c, 0x6a4bf4d4, 0x3a71279e), (0x637cd11c7af74da39930f09e33c7c7b33aef0bfaa41a5ba5682352c4b1a64a05, (0xf37f5a5a2f11bca778e8595549fb24fa0b202992b0801ba671847b778d7e4f9f, (0x79d0ed43c8170e35eaface7c1e60da81f35df9cbca16bb558768778ab3ed92c4, (0xdaefd6dbef006dd061beaa996db352bf83ad2b07ba653d191899ad44fa322235, (0xaf602759beb66c281c075658156c25b2d230d34106cd489acb2a99246832afd1, (0x8ebed4d5dd4b14091ff56a540dd7ef1657b9577039ecbe831d854375a05795d1, 0xc4bb894fb4d4b2536afaf9f239fcdb6cc75c77f4f4bfacd7cd2b0038c0143c38)))))), (0xba8bb7440501d86f1f7abd548cb31e7a0edbf2a1945301313db38e07ff704ef4, (0x41597e2b4bfb388ea411d336b16058a6d942616a0bf5bfc672efc3f6b5e673fe, (0xa5919d6fea18f685350b38d61b9a24831d41cbfa9da65640eb1462e55ce1160e, (0xdd3b5eb418783cf36622b73c6c6de77efc7a386199d41d9c0a6334feec931338, (0x1086b927adc160d59cac68d4f4edec4cef70fe2b8f81d3ce1e1eeb3ca093b3ab, (0xf56c34cc250b4d8e69135167fcbaf693d086ac73ed6e264548c495d03dca061e, 0xf3940f152d5c436b3e31f62efc2b706f9626a443a4eb2b77682cdb826466cc1a))))))), ((((0x2234b808, 0x47157fda), (0x2d369469, 0x39752f24)), 16, (0x5f2fcd0308ee06185f56c1a5a7b2bc859a7147905389a5f6af2c6791c6abc7d8, (0x68351d7f86dafb85dccc6afe3e04de72111b26ba8cce66cd4e1fe0c6adfc31c1, (0x71006c8dadf58fca6e59c1e68ae57ba4ef63f6e3df6fca6ff6005d66b57e2ccd, (0x1bb7318202bfed1cf1bf325e826e2d2c65948eaa161195be42663b9aa3eced2b, (0xc5fce9eba31592c66d4331513440d01ee6dc11e6588f7cd10b83d17203ca5c8b, 0x6914ce0a2d6a41535f07d1def895b298190d4bdc80061535fb02b1ec76d6925d)))))), ((((0x48649567, 0x783ac6f5), (0x0c6efcf1, 0x2301470e)), 16, (0x48859f3efbe24d64057b5d2def1c951618bd2b6a69afb7ff0b63470394defbc5, (0xb1c81402a2d7b500511be70191c7ae81e3dfbbb800901b626ef1ca0db3333a1b, (0x148336ab174ff4ef5af0b4458c1f749054e7dad376ad061ee2f3c916e9900c06, (0x73741432674e523403ce4a6cf60000bfb091bd10d963dd5704c81e2e20b65830, 0xb80b7a745727c61a9009c12f6a413196984955aeecd6221e33b66b20a75811e9))))), ((((0x671f5271, 0x535cf7c1), (0x04299982, 0x50930e50)), 0, (0x3762a9ebd92c5a4dafdb42e10437397bfc651b7be7f8e1266eba6203801f76ef, (0xdabd16c9a77790c231718887bcc68ecbb33901eca2f0ba124f6f9d82a43c5a5d, (0xb4c9eccc0954675e6c94f023f33beb95aa83fdbfa12190af5ceb38bc83d9d878, 0x79f826a9556f431352446a5bae18bf818c7bfd81919b73d96d337b68f0599142)))), ((((0x7fda70a3, 0x69fdf90d), (0x17a28844, 0x11bb418b)), 0, (0x61f83a31a6a2c2aa9b3ab3228fb3049bf4af26769817d9f91351cbcbaec6bead, (0x19a3627c2dd18af7b72d23633de403a55e4b609d52dae46265d24fd3fb9aafe1, 0xb87b662bac703d968bc735c8c7ad5a4f18cf40841c89cc409d9c9a9a0d3f04d7))), ((((0x44d10a5e, 0x76313174), (0x7d9c7563, 0x1890cb30)), 0, (0x41791e431d7c34753087a6cd8bedb89651afb53a595fd5487b088a082b42a90e, 0x0316ddbcca0edf74008b95806dc8fe6f77d828ff57bb506cf79d78e835331399)), (((0x1869ffc0, 0x48510d3c), (0x2ba4cab0, 0x51a142b3)), 0, 0x83e61cc7c482f48c020a562eb7323fc7b5159bde9a0546b449b0385103fbfcae))))))),
+        (54, (0x26a8bf42, 0x4126f459), ((0x0d458a16, 0x0568e284, 0x3c76be43, 0x6be715dd), (0x029a86aa, 0x1e0ecbc9, 0x561b9dcf, 0x01928c63), (0xc13416da6b29bca96740e707d50be90dfd4a2a851460017bd8bdf9850e57885a, (0xcba814d377e9fa95ef7dee9181052a4230d01b7ca248a01bb939b547b4b605b0, (0xee880a2e89cbf1ffaa15f5e6a8142c2c7c9e97f7672c1eb14a8cb5a3052b7b5f, (0xc5e25f3e1cdf0122a07f8697744c61346739fbccff834949cadb683a2e2a6ea6, (0xd851b1ae11877e497a9463556d7c329e71bfbcb03b3b86bc4e141d80deb3b31f, (0xbe6023bda0226c6760838fe041b87c74d3cfbc8ee2245640cd32bbdcfa47df8c, 0x6bba3bccaa22ce8f3aa3962b3daa63eca6d06aff90352d10a66e8ac5b49e4a7d)))))), (0x0bea833c08239817b36f256f4bcbb18f0e875a2afdc5b49b8584d0183b2ec857, (0x93fcebea8df106216431f2a3e889204e4eb8f897e4cf682bee0e2137fc57098b, (0x80dbc010a4d79a1562576d54cb1989af42a76af077c267740c5add72541cb22f, (0xc0b012776b06899e85efeec66e4a0a465c9d6e501d930de6a62b5360b0be4dc0, (0x63b3018e390351315a2be6b34aaea62b96586278fd17efd762cc9a37ca090c9a, (0x34003c9111b9a6396276fbc509a55858fd5478b8d05de3b2d2af7084a2ce887f, 0xf1e938a993851b20670342b89d0160ad8feff2a6c0ca8e4e03fd1aed6e2cbeb4))))))), ((0x0e240242, 0x655f3800, 0x052b4693, 0x222f2f90, 0x73c176f9, 0x7e7c5c4f, 0x75d0a7c8, 0x1eeda278), (0x290502f2, 0x329293e5, 0x6976559d, 0x0a53593a, 0x14bf4491, 0x661bab75, 0x11a44e38, 0x4bffd329), (0x566dc4ebdca324d32036764612f49acafd5c82055361052b2cb2ae86ba3fe6b8, (0xf78c4fc8137d2d5e4d548a1bdde8d3de0ee4804d224bd033484c4518bf174843, (0x3a7b73116df207744ce6fda0f1fa1d38a6ca96079667cde1ecdde72f20b9b421, (0xc50de346effebfd1daa6145d96c0baea9e8eae6c0d93da6729fc57b78aa7325c, (0x8b6d0d6b5b9087efdf2d285b6561f55f49ca43883573c0accbd3b18d2ee5d069, (0xac3abb1b7ad22e1fc1cc274a3bd04833a161bf6ead0d30bb185024b0d68e81a9, 0xf2a78d3635564e4dd0372040317872a4eb1e8501405126d35331ef4bde1461ce)))))), (0xc7943a1a203767f45aa9fea6f16d1e0ac89ad98af595cd36cd14b6cd8bedd045, (0xdc4d4dbf501a54e4f85e4347480c5d605c4e02151d28484ac9e011abddc92a67, (0x5b38d0c4cc3925908a3bd888868bf54b04f3693c5a8b37e638797d7ea22eb449, (0x4e05c365508b8666c4e8d96a21982e263bb2630b47acb8f2d52859b9559ab2f7, (0x5f6c2f4297ab870597f7baa957f02316a6bde0d6989b67b7d12c38c75de8c06b, (0x104f9a13f02f5dab45c6dab4502ce96a113c6703280312892b33a88931c9d682, 0x08587d6e265717be5c28060c0177b4075d4aaf2f084ab39523f3d17c838e1ebb))))))), ((0x315077b2, 0x5b57ecc9, 0x055f61e1, 0x2a077517), (0x0a7e67e7, 0x17e68ab2, 0x254ead7d, 0x0d6822cb), (0x56c5ea23a5c9683d261c8bf76da163b196bb352667e1f26aec2ef640af4955d4, (0x30189b3ac89bb579b8fe815557f049372d5c6d2f8b7383db95b29d7332a241d0, (0x91754774884cbefdcfc010c0e460a405c8a50fe813a0010cfb1779396f842d09, (0x09d813fd4c703a21874743329b961ce3e965383f865222a1b3ef3d2f795efd9c, (0x2de2a6ef65640e540515d8287bc2f36980e9356868cabba982e44ffc461a6b28, (0x2ed4d26335702662feb30665c3e0797c6e4599fb11880c69ae3fd62b70121d41, 0x552594d0f9902f5995ff07f36e255178666b558a736548b382ff2a25c848b451)))))), (0x528ab9344f8bc10544657c21bff2d92c39f284ed969e62247f30fd155905197a, (0xc96baa19e51e0b512d714fb8961ad9dee88055bdafd51a7a6391bd0913bf741b, (0x01b61065615b1fd062118bf6f4a1af967a1e0dd21a77416dac0f6bd06732f61a, (0xdfb87f2178337a3d73714b8c3b9c54653d5caee4fa4c5209a29ebb34558ffbbd, (0x1b32c3857c1488565faf738a161c8aac0998f28f10671011b792a9ab7ef3d15e, (0x0e872a04c1bda9ab73ae030ef6fc973ed43d9058ece839747b6f1cb56228292a, 0x382cea31d7f593cac9ce52a791292d5a300a7e829b58f380abeaa90a7138a56c))))))), ((0x1b8873f7, 0x362568c7, 0x62368ce2, 0x3868ce50), (0x750f6982, 0x4370049e, 0x2215efbc, 0x11bd7464), (0xd04905bc9315e25a1e0b3ff3e6c614fbdff5e394c0ed9558d67201f595a50a79, (0x3de8e143aeb4b3373d48c2fb0700d4b7f49d82a1dd6d45643ef0c8cfc288cb50, (0x5cc821246ca0926f1fffb7bb09d039834ba5fcb9248590adea2a629a203772c3, (0x05b4c571d856b75b312c0c799abc24843411f85d817ab87ca7a42cf3361c9c3f, (0x7b537341e86c0f3ad4c94cad53cd42a2cb855dfe4345d1bf80fdd7ac92ba18e3, (0x2cdafb531362c49c53029847c4db36ea4cae7c5026f72ea744b1bfd22c3c17f5, 0xc4bb894fb4d4b2536afaf9f239fcdb6cc75c77f4f4bfacd7cd2b0038c0143c38)))))), (0x78ee3bef6ca4b02280413a784fbdf4410999a8b7e294c6f179ad1dcc6b99bbb0, (0xdbea2fb5396462a99279631d1334025b373f1134469d85d856b707fa70b4cee8, (0x3b0f871c0fb24bc3d761908c6fef8773df1b2df0039f2b15d4fa9efd2b7c7d46, (0xf763749d8cf9f493fa49f5e9ca49413e88120cbcb3164447a3604763d888e3cd, (0x29de5e7f4333d03ad103f30f4894646f2556cc4e0af9f2a492fa1199b417ae75, (0xa9aeaf78bd5733b5f0b66dde76ddda0f2bc7cf2fc88731875e4d222fd8ebcaf0, 0xf3940f152d5c436b3e31f62efc2b706f9626a443a4eb2b77682cdb826466cc1a))))))), ((((0x0b9c27aa, 0x55a84e80), (0x6ba04611, 0x432bb088)), 54, (0xf7f57a067e798b3b08ddfdfdf47d6751b225077f6e6ce4506a6bf87959254247, (0xf58b3ad9dcc6b1aad779f5af8bf407ffb06682b8db14a36e686095b7b2e109b9, (0x6e76337cfa0a72a4b7a96a5dea6048a2e722f506baa908cb10fc303cb7f6783d, (0x995279be8d7822719d6ca5df73f31456393294af581f8da063eb7cdc9aa3e26e, (0x45300f45b6cd00e3f6851777e45923967c3906d6bf1323d327cd02feaeba4c1d, 0xc98d797a7ba3dfb5f7efc1c6a3f9ba2474adc4edff34c8ca44df3eb805917086)))))), ((((0x72cac293, 0x5d8f4f8f), (0x3f8db6cf, 0x68cc52af)), 22, (0x54bbc86ff452362ad5037a4730e09c4b2bd2927b6060af629713f41812825242, (0xf27a34aada26c595c6c1f082aa8ebd087c6c5004003abd29b38552ac27eb8ffd, (0x76c2f9320ee7e724fbf32bd4eab3962efafa35b192a0908a5bfc54033b85f67d, (0x73741432674e523403ce4a6cf60000bfb091bd10d963dd5704c81e2e20b65830, 0xb80b7a745727c61a9009c12f6a413196984955aeecd6221e33b66b20a75811e9))))), ((((0x0d4df346, 0x6266bc1e), (0x2baa6ec0, 0x31523c44)), 6, (0x784b55d63a1f3288698fec567b83cd9eaf6fd7010ee7801819bf0f6a5285b640, (0x8cd38bd69130cb5337482fad5a5fccba56267eba1c297568769780c52d56e42a, (0xe5639a212555d23563f696506477a716fa80931e411edd93acc00035eee46c5f, 0x79f826a9556f431352446a5bae18bf818c7bfd81919b73d96d337b68f0599142)))), ((((0x3fe785b0, 0x0531df3a), (0x3a6b08d4, 0x54feb733)), 6, (0xc2e6b5e91c9e832d707b50daa4d388744ebca8b1050155118c5f5e8ed09cc989, (0x2f78240689c7c3108666e8dfb4cfbcacdef4a1f1c5bb0723d6f6e1e70d9b8611, 0xb55e3238b092ba6a860a8a0e38a729b3f989fdf46aae1abffeaa1e07efa51dce))), ((((0x6e4ff3f2, 0x3b624ea6), (0x5ba5f69a, 0x5fb5882c)), 2, (0xfc81532ed12dd8b0e16083f9dd611a60156a1a5cc5dd29a070ecfe469023c349, 0x4e8710ee20cc22dd12f31e5bad8de9ea5cd44a68557de9f7678820c90d3461f7)), (((0x1869ffc0, 0x48510d3c), (0x2ba4cab0, 0x51a142b3)), 0, 0x83e61cc7c482f48c020a562eb7323fc7b5159bde9a0546b449b0385103fbfcae))))))),
+        (58, (0x22c859a2, 0x32a3f1cf), ((0x047e1686, 0x6a8ed3c4, 0x3cf801ef, 0x281c87e4), (0x157f89d6, 0x135aaea7, 0x3321925e, 0x2ccdee2f), (0x3f5ce5dbd6a0ac258effa4315c126458530f3e5c82f95f1c6b95fec2121592a7, (0xd5e5438fdcf515486a601a8be81a9d9243637b3b5eb8d70a09ef0a5af6ddccc6, (0xee0d8c0debb2320d55281ea1770f2af9d3c1fdd87a1d307e2beec67f812bfdbb, (0xb67f4d92b78d38ae215526bd93cb817d8b4f68fd94d789d5386f42cd369dcd70, (0xd851b1ae11877e497a9463556d7c329e71bfbcb03b3b86bc4e141d80deb3b31f, (0xbe6023bda0226c6760838fe041b87c74d3cfbc8ee2245640cd32bbdcfa47df8c, 0x6bba3bccaa22ce8f3aa3962b3daa63eca6d06aff90352d10a66e8ac5b49e4a7d)))))), (0x160be6e1ff62cad2231e72d3e5faf5828dd47c190a00a43afca825e3024c83fe, (0x2973a7fb3f74abce410a4d5c0e8a798a37730f053b37c294a3a71e303dce9433, (0x35ce5a75e16bcec9fc305d33f775493c4ad22f0d2f172010cd1f44eeafb0758a, (0x7dd9b9d7f479ea4ee45f591f5a0be6d818bcb781fe62a54774afb057a86be5d5, (0x63b3018e390351315a2be6b34aaea62b96586278fd17efd762cc9a37ca090c9a, (0x34003c9111b9a6396276fbc509a55858fd5478b8d05de3b2d2af7084a2ce887f, 0xf1e938a993851b20670342b89d0160ad8feff2a6c0ca8e4e03fd1aed6e2cbeb4))))))), ((0x588ce9b3, 0x7c8c06af, 0x01088fee, 0x68fed7dc, 0x47849143, 0x580a23e0, 0x0eb0c4af, 0x4bc09b93), (0x51c8778f, 0x0d72f451, 0x57b693f7, 0x6fec0d00, 0x3146b657, 0x704c8162, 0x5515ec44, 0x4fc73153), (0xf56b5270a904e27e4355f1d3ea9b92160895022af2830df701ed3da36f714f96, (0xc6282d38d008557ea43942fd64f1ae6ea37ca65dd4c021ca789422b5c7e70d19, (0xb031574297873051bacef7780ba920e2908e5b8400f766f377b30796a55a4547, (0x8091d82ce7580d86b24c9a3764a04b74482bca86677f393ab8b472142ee3d147, (0x8b6d0d6b5b9087efdf2d285b6561f55f49ca43883573c0accbd3b18d2ee5d069, (0xac3abb1b7ad22e1fc1cc274a3bd04833a161bf6ead0d30bb185024b0d68e81a9, 0xf2a78d3635564e4dd0372040317872a4eb1e8501405126d35331ef4bde1461ce)))))), (0xfee77cf41b9c467bc6471fd1b324ff4b8ec64cf00f67b31b78602ad548649ee9, (0x79672ad79e81d42089cb7725c5c66f226bea6f272de05926cf1930e0a92dfde6, (0xc26d001972f64e64e0a114af4c687ffe063bcf2ef419e7fb759268b5bc5f8a60, (0x5ffbd6886a8e71d5e735b1122d634f4d04509907615d941f9cb3e044b91263b6, (0x5f6c2f4297ab870597f7baa957f02316a6bde0d6989b67b7d12c38c75de8c06b, (0x104f9a13f02f5dab45c6dab4502ce96a113c6703280312892b33a88931c9d682, 0x08587d6e265717be5c28060c0177b4075d4aaf2f084ab39523f3d17c838e1ebb))))))), ((0x59de359f, 0x5a73e7d0, 0x5b099a01, 0x0095b231), (0x051252d6, 0x6b640000, 0x51b5ad2b, 0x6651ad2a), (0xdac341756264cd318ed37932dfca12e85e942457104c67c6a9cc3a1723a9316e, (0x8779e1f1bb8aef3ece401a304c3d27fa4a131ba3e89c3af61415236857db58ed, (0xddd63880c8effc4a70399607e2f1caec38a1862eac0dbc3b078a262abd75379b, (0xbf4721db8ea8dadf542997aa29589b4a7935ddd96b2037f9b2ad23e106bc8df0, (0x2de2a6ef65640e540515d8287bc2f36980e9356868cabba982e44ffc461a6b28, (0x2ed4d26335702662feb30665c3e0797c6e4599fb11880c69ae3fd62b70121d41, 0x552594d0f9902f5995ff07f36e255178666b558a736548b382ff2a25c848b451)))))), (0x14f2297639a5f2ee74a15b1b245e0fcfc31da001d448a896df16014ee41f65f0, (0x1207a0ce487a396ad06c803ebd595791e774ecd52b7ce211639ab5f7d2bd803c, (0x5691e40e2f288fad4e4130934a05519c0c7f5f10aa2ee988c1703043ebc680e6, (0x68da8998751d92d0cdf50363b53b6469e2dccf9a43e4ef6cfa08764a03397e6a, (0x1b32c3857c1488565faf738a161c8aac0998f28f10671011b792a9ab7ef3d15e, (0x0e872a04c1bda9ab73ae030ef6fc973ed43d9058ece839747b6f1cb56228292a, 0x382cea31d7f593cac9ce52a791292d5a300a7e829b58f380abeaa90a7138a56c))))))), ((0x014cad8c, 0x7554e304, 0x4d312269, 0x27b328d3), (0x202a68cb, 0x23fdc7dd, 0x3c534db1, 0x61e138ef), (0x753cae6ce6075dbb51dc95e57f503add958ad7faa275399a2835bf984ca7d04d, (0xb2b3ad7834235a9a81f7ca5d442fe1f0491e73a2d32be88c184d4b8fe3d3124b, (0xda5315cb6ef3991120d9b49b4dc1dd75e045d40baee4b3929755f184b3cacefe, (0xe08375821ba61db30d4f4c15ba40c10e0d9320c7fc3181af7bc7080598bc6593, (0x7b537341e86c0f3ad4c94cad53cd42a2cb855dfe4345d1bf80fdd7ac92ba18e3, (0x2cdafb531362c49c53029847c4db36ea4cae7c5026f72ea744b1bfd22c3c17f5, 0xc4bb894fb4d4b2536afaf9f239fcdb6cc75c77f4f4bfacd7cd2b0038c0143c38)))))), (0x4720cb0c7bbadbd64f46a6dffd8d6c7c17fd05dc5a4ffca1301e5843fd652df5, (0x810038b3dc20a2249854493bc9e430594ad2d70842507dd997bd09f02c3c7830, (0x7ca69f5e353afb7af3fd887e7cf86e607340ac94566b680f9308d2ecd043fc22, (0x0a3632b67891c7f0d5d25aed39639cbfe4185493e87684221807f6344f8f2729, (0x29de5e7f4333d03ad103f30f4894646f2556cc4e0af9f2a492fa1199b417ae75, (0xa9aeaf78bd5733b5f0b66dde76ddda0f2bc7cf2fc88731875e4d222fd8ebcaf0, 0xf3940f152d5c436b3e31f62efc2b706f9626a443a4eb2b77682cdb826466cc1a))))))), ((((0x2fd68e78, 0x08280892), (0x7babf492, 0x3f6a6b0c)), 58, (0x464102c75a87875ccae2dae74439ffeb54a31a072dfa4f8032b81a2aaedcdff7, (0xb3f03e430c89df71927845e3bc35c393a34fdb500a9aa3627979c8115e96e0eb, (0xfc65aa4d0187e0aa2e92187a0482ae92333ac73aecdb61e575db70811f2cbabf, (0xa2c6ea089193fbcc68dfb26d8c9dad34017f9d942070e573e115764454157d38, (0x45300f45b6cd00e3f6851777e45923967c3906d6bf1323d327cd02feaeba4c1d, 0xc98d797a7ba3dfb5f7efc1c6a3f9ba2474adc4edff34c8ca44df3eb805917086)))))), ((((0x79e4de05, 0x1e71b10e), (0x36a2f613, 0x3e1fe349)), 26, (0x7b21c2860f11139a27dd5e67846084a693a67c5005f9772fad921aa9751e23cb, (0x143a71aafb8d39b47ec7fb6e1dd6cc1f760c068a8bf51ef3a5946c2a8213ed6a, (0xfaf58af60cdf717e933e7789fc918ab7522f657dffb62c81825a478f3536cecc, (0x98779608ff9af66fc1265423c27412b092470eca73333220340cc4134e3b18e7, 0xb80b7a745727c61a9009c12f6a413196984955aeecd6221e33b66b20a75811e9))))), ((((0x50005536, 0x5932be44), (0x36b70c43, 0x1c1258fb)), 10, (0x5427b1556e5f6b81e4de85e899e6fd0583c9b33215acfcf9168d39a446ef265d, (0x86fb80eb84667c80192fa46d3747ddb36b241ba48d6697a520c410f5bb97a8e0, (0x5dceb03170aab9f34c018d59110ffab9e8c329ed1663de9e183e0b14bfa552eb, 0x0db81076874be42d24a7325d909867c54f6f3050fbcb1757e80aff2f80deac02)))), ((((0x3e6790f7, 0x0e77b566), (0x20241121, 0x6df10801)), 2, (0xafcf38a2acee3cc10c022ee5fb67cabafdf4da6a15964369a58295f89b9091fb, (0xfea0685128247c309fb06e1fc02d3d2cde1f8e0372c9bce0cb30e1aae4ee78b5, 0xb87b662bac703d968bc735c8c7ad5a4f18cf40841c89cc409d9c9a9a0d3f04d7))), ((((0x6e4ff3f2, 0x3b624ea6), (0x5ba5f69a, 0x5fb5882c)), 2, (0xfc81532ed12dd8b0e16083f9dd611a60156a1a5cc5dd29a070ecfe469023c349, 0x4e8710ee20cc22dd12f31e5bad8de9ea5cd44a68557de9f7678820c90d3461f7)), (((0x1869ffc0, 0x48510d3c), (0x2ba4cab0, 0x51a142b3)), 0, 0x83e61cc7c482f48c020a562eb7323fc7b5159bde9a0546b449b0385103fbfcae)))))))
+    ];
+
+    let ok: bool = array_fold::<verify_query, 8>(queries, true);
+    assert!(ok);
+}
